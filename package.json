@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "@tailwindcss/postcss": "^4.3.1"
+    "@tailwindcss/postcss": "^4.3.1",
+    "twilio": "^6.0.2"
   }
 }

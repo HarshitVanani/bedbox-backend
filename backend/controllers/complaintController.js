@@ -1,5 +1,6 @@
-// backend/controllers/complaintController.js
 const Complaint = require('../models/Complaint');
+const User = require('../models/User'); 
+const { sendSMSNotification } = require('../smsService'); // ◄ Import our centralized SMS dispatcher
 
 // 1. File a brand new complaint ticket (Student Access)
 exports.fileComplaint = async (req, res) => {
@@ -22,8 +23,6 @@ exports.fileComplaint = async (req, res) => {
 };
 
 // 2. Retrieve complaints list (Polymorphic: Students see their own logs, Admins see everything!)
-const User = require('../models/User');
-
 exports.getComplaints = async (req, res) => {
     try {
         let complaints;
@@ -52,6 +51,16 @@ exports.resolveComplaint = async (req, res) => {
 
         complaint.status = nextStatus; // Set to 'In Progress' or 'Resolved'
         await complaint.save();
+
+        // 🎯 TARGETED COMPLAINT STATUS UPDATER HOOK
+        // Fetch the individual student who logged this specific ticket
+        const ticketOwner = await User.findById(complaint.studentId);
+        
+        if (ticketOwner) {
+            const smsPayload = `Your complaint ticket regarding "${complaint.title}" has been updated to: [${nextStatus}]. Check your BedBox dashboard panel for progress logs.`;
+            // This natively honors their 'Mute Real-time System Alerts' preference state!
+            await sendSMSNotification(ticketOwner, smsPayload);
+        }
 
         res.json({ message: `Ticket reference status updated to: ${nextStatus}`, complaint });
     } catch (error) {

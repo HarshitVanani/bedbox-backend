@@ -1,6 +1,7 @@
-// backend/controllers/messController.js
 const fs = require('fs');
 const path = require('path');
+const User = require('../models/User'); // ◄ 1. Import User Model to fetch student database records
+const { sendSMSNotification } = require('../smsService'); // ◄ 2. Import Centralized SMS dispatch system
 
 // Auto-Detecting Engine: Automatically searches backend/models/ for your mess/menu file
 let Mess;
@@ -52,6 +53,16 @@ const updateMeal = async (req, res) => {
         if (!updatedMenu) {
             return res.status(404).json({ message: "Target calendar day row not found." });
         }
+
+        // 🎯 REAL-TIME MESS NOTIFICATION DISPATCH ENGINE
+        // Fetch all active students in the hostel system
+        const activeStudents = await User.find({ role: 'student' });
+        
+        // Loop through each student asynchronously to filter mute preferences and send SMS
+        activeStudents.forEach(async (student) => {
+            const smsPayload = `The Mess Menu for ${day} (${mealType}) has been updated. New Menu: ${updatedDishes}. Check your dashboard to view the full tracking layout.`;
+            await sendSMSNotification(student, smsPayload);
+        });
 
         res.status(200).json({ message: "Dish updated successfully", updatedMenu });
     } catch (error) {

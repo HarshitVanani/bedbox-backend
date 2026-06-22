@@ -20,8 +20,13 @@ const UserSchema = new mongoose.Schema({
     phoneNumber: { 
         type: String, 
         unique: true, 
-        sparse: true // Allows multiple students to not have a phone number during setup
+        sparse: true 
+    },
+    // 🎯 ADD THIS EXACT LINE HERE
+    receiveSMSAlerts: {
+        type: Boolean,
+        default: true // Means "Alerts Enabled" by default when they create an account
     }
-}, { timestamps: true }); // Automatically manages createdAt and updatedAt fields
+}, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);
