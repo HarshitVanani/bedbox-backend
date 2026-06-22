@@ -1,6 +1,8 @@
 // backend/controllers/invoiceController.js
 const Invoice = require('../models/Invoice');
 const Resident = require('../models/Resident');
+const User = require('../models/User'); // ◄ Import User Model
+const { sendSMSNotification } = require('../smsService'); // ◄ Strict Lowercase Import Path
 
 // 1. Generate a brand new invoice bill (Admin Only)
 exports.createInvoice = async (req, res) => {
@@ -21,6 +23,14 @@ exports.createInvoice = async (req, res) => {
             billType,
             dueDate: new Date(dueDate)
         });
+
+        // 🎯 TARGETED FEE NOTIFICATION TRIGGER
+        const targetStudent = await User.findById(resident.userId);
+        if (targetStudent) {
+            const formattedDate = new Date(dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+            const smsPayload = `A new bill for ${billType} amounting to ₹${amount} has been generated. Due Date: ${formattedDate}. Check your BedBox dashboard panel.`;
+            await sendSMSNotification(targetStudent, smsPayload);
+        }
 
         res.status(201).json({ message: 'Invoice bill item generated successfully inside ledger registries.', newInvoice });
     } catch (error) {

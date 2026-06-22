@@ -3,6 +3,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const bcrypt = require('bcryptjs'); // ◄ Import bcrypt to hash the admin password
+const User = require('./models/User'); // ◄ Import the User model safely
 
 // Routes imports
 const authRoutes = require('./routes/authRoutes');
@@ -10,8 +12,8 @@ const roomRoutes = require('./routes/roomRoutes');
 const complaintRoutes = require('./routes/complaintRoutes');
 const messRoutes = require('./routes/messRoutes');
 const residentRoutes = require('./routes/residentRoutes');
-const invoiceRoutes = require('./routes/invoiceRoutes'); // IMPORT INVOICE ROUTE
-const maintenanceNoticeRoutes = require('./routes/maintenanceNoticeRoutes'); // 🎯 NEW: Maintenance Routes
+const invoiceRoutes = require('./routes/invoiceRoutes'); 
+const maintenanceNoticeRoutes = require('./routes/maintenanceNoticeRoutes'); 
 
 dotenv.config();
 const app = express();
@@ -25,8 +27,8 @@ app.use('/api/rooms', roomRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/mess', messRoutes);
 app.use('/api/residents', residentRoutes);
-app.use('/api/invoices', invoiceRoutes); // PLUG IN INVOICE API PATHWAY
-app.use('/api/maintenance-notices', maintenanceNoticeRoutes); // 🎯 NEW: Maintenance API Entry
+app.use('/api/invoices', invoiceRoutes); 
+app.use('/api/maintenance-notices', maintenanceNoticeRoutes); 
 
 app.get('/', (req, res) => {
     res.send('BedBox Hostel Management System API is running smoothly...');
@@ -35,14 +37,38 @@ app.get('/', (req, res) => {
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/bedbox_hostel';
 
-// backend/server.js
 mongoose.connect(MONGO_URI)
-    .then(() => {
+    .then(async () => {
         console.log('⚡ Successfully connected to MongoDB Database.');
         
-        // 🎯 FIXED: Added '0.0.0.0' to accept network connections from your phone!
+        try {
+            // 🎯 PRODUCTION AUTO-SEEDING ENGINE
+            const adminExists = await User.findOne({ username: 'admin' });
+            
+            if (!adminExists) {
+                console.log('🚀 No admin account found. Injecting production credentials...');
+                
+                const salt = await bcrypt.genSalt(10);
+                const hashedPassword = await bcrypt.hash('adminpassword123', salt);
+
+                await User.create({
+                    username: 'admin',
+                    password: hashedPassword,
+                    role: 'admin',
+                    receiveSMSAlerts: true
+                });
+
+                console.log('✅ Admin credentials successfully seeded into the cloud database!');
+            } else {
+                console.log('ℹ️ Admin account verified in database. Skipping seed.');
+            }
+        } catch (seedError) {
+            console.error('⚠️ Auto-seeding warning:', seedError.message);
+        }
+
+        // Accept incoming connections from any interface
         app.listen(PORT, '0.0.0.0', () => {
-            console.log(`🚀 BedBox Server is running on http://192.168.1.17:${PORT}`);
+            console.log(`🚀 BedBox Server is running on port: ${PORT}`);
         });
     })
     .catch((error) => {
