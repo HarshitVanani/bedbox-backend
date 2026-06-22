@@ -1,9 +1,10 @@
-// frontend/vite.config.js
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react'; // 🎯 FIXED: Correct standard import name
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite'; // ◄ 1. Add this import
 
 export default defineConfig({
   plugins: [
-    react()
-  ]
+    react(),
+    tailwindcss(), // ◄ 2. Add this plugin to the array
+  ],
 });
