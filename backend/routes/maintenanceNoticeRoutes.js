@@ -1,11 +1,12 @@
-// backend/routes/maintenanceNoticeRoutes.js
 const express = require('express');
 const router = express.Router();
 const MaintenanceNotice = require('../models/MaintenanceNotice');
-const authMiddleware = require('../middleware/authMiddleware'); // Protects our route pipeline
 
-// 1. GET: Fetch all active maintenance notices (Both Admin & Student)
-router.get('/', authMiddleware, async (req, res) => {
+// ❌ CHANGE THIS LINE: Destructure 'protect' from the middleware object
+const { protect } = require('../middleware/authMiddleware'); 
+
+// 1. GET: Fetch all active maintenance notices
+router.get('/', protect, async (req, res) => { // ❌ Changed authMiddleware to protect
   try {
     const notices = await MaintenanceNotice.find().sort({ createdAt: -1 });
     res.json(notices);
@@ -15,7 +16,7 @@ router.get('/', authMiddleware, async (req, res) => {
 });
 
 // 2. POST: Create a new live notice (Admin Only)
-router.post('/create', authMiddleware, async (req, res) => {
+router.post('/create', protect, async (req, res) => { // ❌ Changed authMiddleware to protect
   const { title, description, areaOrLocation } = req.body;
   if (!title || !description || !areaOrLocation) {
     return res.status(400).json({ message: 'Please fully specify all notification properties.' });
@@ -30,7 +31,7 @@ router.post('/create', authMiddleware, async (req, res) => {
 });
 
 // 3. DELETE: Purge notice after task completion (Admin Only)
-router.delete('/:id', authMiddleware, async (req, res) => {
+router.delete('/:id', protect, async (req, res) => { // ❌ Changed authMiddleware to protect
   try {
     const deletedItem = await MaintenanceNotice.findByIdAndDelete(req.params.id);
     if (!deletedItem) return res.status(404).json({ message: 'Notice file reference not found.' });
