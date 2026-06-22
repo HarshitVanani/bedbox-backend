@@ -1,0 +1,5 @@
+/* frontend/src/index.css */
+@import "tailwindcss";
+
+/* 🎯 THE FIX: Forces Tailwind v4 to listen strictly to our manual '.dark' class toggle! */
+@custom-variant dark (&:where(.dark, .dark *));
