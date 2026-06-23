@@ -3,8 +3,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const bcrypt = require('bcryptjs'); // ◄ Import bcrypt to hash the admin password
-const User = require('./models/User'); // ◄ Import the User model safely
+const bcrypt = require('bcryptjs'); 
+const User = require('./models/User'); 
 
 // Routes imports
 const authRoutes = require('./routes/authRoutes');
@@ -42,26 +42,25 @@ mongoose.connect(MONGO_URI)
         console.log('⚡ Successfully connected to MongoDB Database.');
         
         try {
-            // 🎯 PRODUCTION AUTO-SEEDING ENGINE
-            const adminExists = await User.findOne({ username: 'admin' });
+            // 🎯 FIXED PRODUCTION AUTO-RESET ENGINE
+            console.log('🚀 Running production database account check & password sync...');
             
-            if (!adminExists) {
-                console.log('🚀 No admin account found. Injecting production credentials...');
-                
-                const salt = await bcrypt.genSalt(10);
-                const hashedPassword = await bcrypt.hash('adminpassword123', salt);
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash('adminpassword123', salt);
 
-                await User.create({
+            // This forces MongoDB to overwrite the entry and sync the password cleanly!
+            await User.findOneAndUpdate(
+                { username: 'admin' }, 
+                { 
                     username: 'admin',
                     password: hashedPassword,
                     role: 'admin',
-                    receiveSMSAlerts: true
-                });
+                    receiveSMSAlerts: true 
+                },
+                { upsert: true, new: true }
+            );
 
-                console.log('✅ Admin credentials successfully seeded into the cloud database!');
-            } else {
-                console.log('ℹ️ Admin account verified in database. Skipping seed.');
-            }
+            console.log('✅ Admin credentials successfully synchronized and locked into cloud database!');
         } catch (seedError) {
             console.error('⚠️ Auto-seeding warning:', seedError.message);
         }
