@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 export default function OverviewMetrics() {
-  const [metrics, setMetrics] = useState({ occupiedBeds: 0, totalBeds: 120, activeStudents: 0, pendingComplaints: 0, unpaidFees: 0 });
+  const [metrics, setMetrics] = useState({ occupiedBeds: 0, totalBeds: 0, activeStudents: 0, pendingComplaints: 0, unpaidFees: 0 });
   const [gateLogs, setGateLogs] = useState([]);
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,29 +27,38 @@ export default function OverviewMetrics() {
         axios.get('https://bedbox-backend.onrender.com/api/finance', apiConfig)
       ]);
 
-      // 1. Bed Capacities Sync
-      let total = 0, occupied = 0;
+      // 1. Bed Capacities Dynamic Sync
+      let calculatedTotal = 0;
+      let calculatedOccupied = 0;
+      
       if (rooms.status === 'fulfilled' && Array.isArray(rooms.value.data)) {
         rooms.value.data.forEach(r => {
-          total += r.capacity || 0;
-          if (r.occupiedCount !== undefined) {
-            occupied += r.occupiedCount;
-          } else if (Array.isArray(r.beds)) {
-            occupied += r.beds.filter(b => b.isOccupied || b.status === 'Occupied').length;
-          } else if (r.residentName || r.username) {
-            occupied += 1;
+          if (Array.isArray(r.beds)) {
+            // Count total physical bed structures deployed in the room schema array
+            calculatedTotal += r.beds.length;
+            calculatedOccupied += r.beds.filter(b => b.isOccupied || b.status === 'Occupied' || b.occupiedBy).length;
+          } else {
+            // Document property fallback mappings
+            calculatedTotal += r.capacity || r.totalBeds || 0;
+            if (r.occupiedCount !== undefined) {
+              calculatedOccupied += r.occupiedCount;
+            } else if (r.residentName || r.username) {
+              calculatedOccupied += 1;
+            }
           }
         });
       }
-      if (total === 0) total = 120;
+      
+      // Safety baseline fallback if no rooms are returned during system startup
+      if (calculatedTotal === 0) calculatedTotal = 6;
 
       // 2. Map Active Residents & Gate Indicators
       let boardersCount = 0, extractedLogs = [];
       if (residents.status === 'fulfilled' && Array.isArray(residents.value.data)) {
-        boardersCount = residents.value.data.length;
+        boardersCount = residents.value.data.filter(r => r.status === 'Active').length;
         extractedLogs = residents.value.data.slice(0, 4).map(s => ({
           _id: s._id,
-          name: s.name || s.username || 'Resident',
+          name: s.fullName || s.name || s.username || 'Resident',
           room: s.roomNumber || s.room || '101',
           status: s.isCheckIn !== false ? 'IN' : 'OUT'
         }));
@@ -74,7 +83,6 @@ export default function OverviewMetrics() {
           const fallbackRes = await axios.get('https://bedbox-backend.onrender.com/api/invoices', apiConfig);
           if (Array.isArray(fallbackRes.data)) invoiceData = fallbackRes.data;
         } catch(e) {
-          // If neither works, try your other invoice list endpoint variation
           try {
             const alternativeRes = await axios.get('https://bedbox-backend.onrender.com/api/invoice', apiConfig);
             if (Array.isArray(alternativeRes.data)) invoiceData = alternativeRes.data;
@@ -87,14 +95,20 @@ export default function OverviewMetrics() {
         invoiceData.forEach(inv => {
           const currentStatus = inv.ledgerStatus || inv.status;
           if (currentStatus === 'Unpaid' || currentStatus === 'unpaid') {
-            // Evaluates your alternate currency properties fields inside MongoDB schemas
             const billValue = inv.amountBalance || inv.amount || inv.dueAmount || 0;
             outstandingAmount += Number(billValue);
           }
         });
       }
 
-      setMetrics({ occupiedBeds: occupied || 2, totalBeds: total, activeStudents: boardersCount, pendingComplaints: openTickets, unpaidFees: outstandingAmount });
+      setMetrics({ 
+        occupiedBeds: calculatedOccupied, 
+        totalBeds: calculatedTotal, 
+        activeStudents: boardersCount, 
+        pendingComplaints: openTickets, 
+        unpaidFees: outstandingAmount 
+      });
+      
       if (extractedLogs.length > 0) setGateLogs(extractedLogs);
       
       setActivities([
