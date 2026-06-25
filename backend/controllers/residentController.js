@@ -1,19 +1,167 @@
-// backend/routes/residentRoutes.js
-const express = require('express');
-const router = express.Router();
-const { protect, authorize } = require('../middleware/authMiddleware');
+// backend/controllers/residentController.js
+const Resident = require('../models/Resident');
+const User = require('../models/User');
+const Room = require('../models/Room');
+const Invoice = require('../models/Invoice');
+const bcrypt = require('bcryptjs');
 
-const { 
-  addResident, 
-  getAllResidents, 
-  checkOutResident 
-} = require('../controllers/residentController');
 
-router.post('/register', protect, authorize('admin'), addResident);
-router.get('/', protect, authorize('admin'), getAllResidents);
-router.post('/checkout', protect, authorize('admin'), checkOutResident);
+exports.addResident = async (req, res) => {
+    try {
+        const { fullName, username, password, roomNumber, bedNumber, phoneNumber, emergencyContact } = req.body;
 
-// 🎯 Commented out to prevent the undefined handler deployment crash
-// router.delete('/force-wipe/:id', protect, authorize('admin'), forceDeleteResident);
+        const cleanUsername = username.trim().toLowerCase().replace('@', '');
+        const cleanRoom = roomNumber.trim();
+        const targetBed = parseInt(bedNumber);
 
-module.exports = router;
+        let formattedPhone = phoneNumber.trim();
+        if (formattedPhone.length === 10 && !formattedPhone.startsWith('+')) {
+            formattedPhone = `+91${formattedPhone}`;
+        }
+
+        const userExists = await User.findOne({ username: cleanUsername });
+        if (userExists) {
+            return res.status(400).json({ message: 'This username is already allocated to an active account.' });
+        }
+
+        const room = await Room.findOne({ roomNumber: cleanRoom });
+        if (!room) {
+            return res.status(400).json({ message: `Room ${cleanRoom} does not exist.` });
+        }
+
+        const bed = room.beds.find(b => b.bedNumber === targetBed);
+        if (!bed) {
+            return res.status(400).json({ message: `Bed slot ${targetBed} does not exist.` });
+        }
+        
+        if (bed.status !== 'Available') {
+            return res.status(400).json({ message: `Bed slot ${targetBed} is occupied.` });
+        }
+
+        // Send plain text password straight to User.create (Pre-save hook will hash it)
+        const newUserAccount = await User.create({
+            username: cleanUsername,
+            password: password, 
+            role: 'student',
+            phoneNumber: formattedPhone,
+            receiveSMSAlerts: true 
+        });
+
+        const newResident = await Resident.create({
+            userId: newUserAccount._id,
+            fullName: fullName.trim(),
+            username: cleanUsername,
+            roomNumber: cleanRoom,
+            bedNumber: targetBed,
+            phoneNumber: formattedPhone,
+            emergencyContact: emergencyContact.trim(),
+            status: 'Active',
+            checkInDate: new Date()
+        });
+
+        bed.status = 'Occupied';
+        bed.occupiedBy = newUserAccount._id;
+        await room.save();
+
+        res.status(201).json({ message: 'Resident checked in cleanly!', newResident });
+    } catch (error) {
+        console.error("--- BACKEND REGISTRATION CRASH LOG ---", error.message);
+        res.status(500).json({ message: 'Internal server processing error', error: error.message });
+    }
+};
+
+exports.getAllResidents = async (req, res) => {
+    try {
+        const residents = await Resident.find().sort({ createdAt: -1 });
+        res.json(residents);
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to synchronize directory collections', error: error.message });
+    }
+};
+
+
+exports.checkOutResident = async (req, res) => {
+    try {
+        const { username, phoneNumber, checkOutDate } = req.body;
+
+        const cleanInputUsername = username.trim().toLowerCase().replace('@', '');
+        const cleanPhone = phoneNumber.trim();
+
+        let resident = await Resident.findOne({
+            username: cleanInputUsername,
+            status: 'Active'
+        });
+
+        if (!resident) {
+            resident = await Resident.findOne({
+                phoneNumber: cleanPhone,
+                status: 'Active'
+            });
+        }
+
+        if (!resident) {
+            return res.status(404).json({
+                message: `No active resident profile found matching username '${username}' and phone '${phoneNumber}'.`
+            });
+        }
+
+        const unpaidBills = await Invoice.findOne({ studentId: resident.userId, status: 'Unpaid' });
+        const cleanFinances = unpaidBills ? false : true;
+
+        const room = await Room.findOne({ roomNumber: resident.roomNumber });
+        if (room) {
+            const bed = room.beds.find(b => b.bedNumber === resident.bedNumber);
+            if (bed) {
+                bed.status = 'Available';
+                bed.occupiedBy = null;
+                await room.save();
+            }
+        }
+
+        resident.status = 'Checked Out';
+        resident.checkOutDate = checkOutDate ? new Date(checkOutDate) : new Date();
+        resident.duesCleared = cleanFinances;
+        
+        resident.roomNumber = resident.roomNumber + " (Archived)";
+        await resident.save();
+
+        res.json({ message: `Resident ${resident.fullName} released successfully.` });
+    } catch (error) {
+        res.status(500).json({ message: 'Critical failure running check-out gate operations', error: error.message });
+    }
+};
+
+exports.forceDeleteResident = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Find the resident profile document first
+        const resident = await Resident.findById(id);
+        if (!resident) {
+            return res.status(404).json({ success: false, message: "Resident profile record not found." });
+        }
+
+        // Release the assigned room bed resource back to 'Available' status
+        const room = await Room.findOne({ roomNumber: resident.roomNumber });
+        if (room) {
+            const bed = room.beds.find(b => b.bedNumber === resident.bedNumber);
+            if (bed) {
+                bed.status = 'Available';
+                bed.occupiedBy = null;
+                await room.save();
+            }
+        }
+
+        // Wipe associated login user authentication credentials account
+        if (resident.userId) {
+            await User.findByIdAndDelete(resident.userId);
+        }
+
+        // Erase resident profile entry permanently
+        await Resident.findByIdAndDelete(id);
+
+        res.status(200).json({ success: true, message: "Resident data structures purged cleanly from cluster collections." });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Error executing force-purge pipeline operations.", error: error.message });
+    }
+};
