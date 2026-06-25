@@ -42,30 +42,39 @@ mongoose.connect(MONGO_URI)
         console.log('⚡ Successfully connected to MongoDB Database.');
         
         try {
-            // 🎯 FIXED PRODUCTION AUTO-RESET ENGINE
             console.log('🚀 Running production database account check & password sync...');
             
             const salt = await bcrypt.genSalt(10);
-            const hashedPassword = await bcrypt.hash('adminpassword123', salt);
+            const hashedPassword = await bcrypt.hash('password123', salt);
 
-            // This forces MongoDB to overwrite the entry and sync the password cleanly!
+            // 🎯 FORCED RESIDENT PASSWORD SYNC
+            await User.findOneAndUpdate(
+                { username: 'harshit3' }, 
+                { 
+                    password: hashedPassword, // Forces a clean, correctly-hashed password
+                    role: 'student'
+                },
+                { upsert: false } // Only updates if the user already exists
+            );
+
+            // Existing admin sync code...
+            const adminPassword = await bcrypt.hash('adminpassword123', salt);
             await User.findOneAndUpdate(
                 { username: 'admin' }, 
                 { 
                     username: 'admin',
-                    password: hashedPassword,
+                    password: adminPassword,
                     role: 'admin',
                     receiveSMSAlerts: true 
                 },
                 { upsert: true, new: true }
             );
 
-            console.log('✅ Admin credentials successfully synchronized and locked into cloud database!');
+            console.log('✅ Account credentials successfully synchronized into cloud database!');
         } catch (seedError) {
             console.error('⚠️ Auto-seeding warning:', seedError.message);
         }
 
-        // Accept incoming connections from any interface
         app.listen(PORT, '0.0.0.0', () => {
             console.log(`🚀 BedBox Server is running on port: ${PORT}`);
         });
