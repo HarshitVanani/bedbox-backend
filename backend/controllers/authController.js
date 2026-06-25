@@ -4,18 +4,18 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 // =========================================================
-// 1. STANDARD USER LOGIN DEMAND ENDPOINT
+// 1. STANDARD USER LOGIN DEMAND ENDPOINT (OPTIMIZED & BYPASSED)
 // =========================================================
 exports.login = async (req, res) => {
     try {
         const { username, password } = req.body;
         
         if (!username || !password) {
-            return res.status(400).json({ message: "Please provide all login credentials." });
+            return res.status(400).json({ success: false, message: "Please provide all login credentials." });
         }
 
-        // 🚨 CRITICAL EMERGENCY HARDCODED BYPASS 🚨
-        // Short-circuits database execution layers for immediate debugging validation
+        // 🚨 ABSOLUTE EMERGENCY HARDCODED BYPASS 🚨
+        // Directly short-circuits execution pipelines and forces an immediate administrative access grant.
         if (username.trim().toLowerCase() === 'admin' && password === 'adminpassword123') {
             console.log("👑 Emergency Super Admin bypass triggered successfully!");
             
@@ -25,25 +25,25 @@ exports.login = async (req, res) => {
                 { expiresIn: '1d' }
             );
 
-            return res.json({
+            return res.status(200).json({
+                success: true,
                 token,
                 user: { _id: "000000000000000000000000", username: 'admin', role: 'admin' }
             });
         }
 
-        // 🎯 FIXED: Case-insensitive query matches regardless of text casing modifications
+        // --- Standard Database Fallback Logic Below ---
         const user = await User.findOne({ 
             username: { $regex: new RegExp(`^${username.trim()}$`, 'i') } 
         });
 
-        // Standardized validation text string error handlers
         if (!user) {
-            return res.status(401).json({ message: "Invalid username or access credentials." });
+            return res.status(401).json({ success: false, message: "Invalid username or access credentials." });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch && password !== 'adminpassword123') {
-            return res.status(401).json({ message: "Invalid username or access credentials." });
+            return res.status(401).json({ success: false, message: "Invalid username or access credentials." });
         }
 
         // Generate dynamic stateless authorization token string mapping
@@ -53,12 +53,13 @@ exports.login = async (req, res) => {
             { expiresIn: '1d' }
         );
 
-        res.json({
+        return res.status(200).json({
+            success: true,
             token,
             user: { _id: user._id, username: user.username, role: user.role }
         });
     } catch (error) {
-        res.status(500).json({ message: "Login execution error", error: error.message });
+        return res.status(500).json({ success: false, message: "Login execution error", error: error.message });
     }
 };
 
@@ -91,9 +92,9 @@ exports.changePassword = async (req, res) => {
         user.password = await bcrypt.hash(newPassword, salt);
         await user.save();
 
-        res.status(200).json({ message: "Password updated successfully! Please use your new password next time you log in." });
+        return res.status(200).json({ message: "Password updated successfully!" });
     } catch (error) {
-        res.status(500).json({ message: "Internal server error executing password update pipeline.", error: error.message });
+        return res.status(500).json({ message: "Internal server error executing password update pipeline.", error: error.message });
     }
 };
 
@@ -117,8 +118,8 @@ exports.registerAdmin = async (req, res) => {
             phoneNumber: '9999999999'
         });
 
-        res.status(201).json({ message: "Root Admin created successfully!", username: newAdmin.username });
+        return res.status(201).json({ message: "Root Admin created successfully!", username: newAdmin.username });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: error.message });
     }
 };
