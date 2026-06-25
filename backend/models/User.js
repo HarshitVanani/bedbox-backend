@@ -1,4 +1,3 @@
-// backend/models/User.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -27,7 +26,10 @@ const UserSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     }
-}, { timestamps: true });
+}, { 
+    timestamps: true,
+    autoIndex: true // Forces Mongoose to rebuild/sync mismatched database indexes on startup
+});
 
 // AUTOMATIC PASSWORD HASHING HOOK
 UserSchema.pre('save', async function (next) {
