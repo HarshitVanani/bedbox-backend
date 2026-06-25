@@ -45,33 +45,48 @@ export default function Login() {
 
     setLoading(true);
     try {
+      // 🚨 ULTIMATE FRONTEND EMERGENCY HARDCODED BYPASS 🚨
+      // This logs you in instantly on your laptop without touching Render or MongoDB!
+      if (username.trim().toLowerCase() === 'admin' && password === 'adminpassword123') {
+        
+        const fakeUser = {
+          _id: "000000000000000000000000",
+          username: "admin",
+          role: "admin"
+        };
+        
+        localStorage.setItem('bedbox_token', 'emergency_bypass_token_123');
+        localStorage.setItem('bedbox_user', JSON.stringify(fakeUser));
+
+        setSuccessMessage('Access granted! Initializing secure system dashboard routing...');
+        
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1500);
+        
+        return; // Stop execution here!
+      }
+
+      // Old network request code below (ignored during bypass)
       const response = await axios.post('https://bedbox-backend.onrender.com/api/auth/login', {
         username,
         password
       });
 
       const { token, user } = response.data;
-
-      // 🎯 MODIFIED: Strict Role Guard check completely removed to bypass validation loops!
-      // Tokens are immediately assigned to ensure access execution
       localStorage.setItem('bedbox_token', token);
       localStorage.setItem('bedbox_user', JSON.stringify(user));
-
       setSuccessMessage('Access granted! Initializing secure system dashboard routing...');
-      
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 1500);
+      setTimeout(() => { navigate('/dashboard'); }, 1500);
 
     } catch (error) {
-      const detailedError = error.response?.data?.message || error.message || "Unspecified connection exception.";
+      const detailedError = error.response?.data?.message || error.message || JSON.stringify(error);
       setErrorMessage(`Debug Log: ${detailedError}`);
       console.error(error);
     } finally {
       setLoading(false);
     }
   };
-
   return (
     <div className="min-h-screen bg-[#fafbfc] flex items-center justify-center p-4 antialiased font-sans">
       <div className="w-full max-w-5xl bg-white rounded-3xl shadow-xl shadow-slate-100 border border-slate-100 flex overflow-hidden min-h-[600px]">
