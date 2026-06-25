@@ -10,6 +10,11 @@ exports.addResident = async (req, res) => {
     try {
         const { fullName, username, password, roomNumber, bedNumber, phoneNumber, emergencyContact } = req.body;
 
+        // 1. Crash Prevention: Guard against missing or undefined fields before trimming
+        if (!username || !password || !roomNumber || !bedNumber || !phoneNumber || !fullName) {
+            return res.status(400).json({ message: 'Missing required registration fields.' });
+        }
+
         const cleanUsername = username.trim().toLowerCase().replace('@', '');
         const cleanRoom = roomNumber.trim();
         const targetBed = parseInt(bedNumber);
@@ -18,6 +23,9 @@ exports.addResident = async (req, res) => {
         if (formattedPhone.length === 10 && !formattedPhone.startsWith('+')) {
             formattedPhone = `+91${formattedPhone}`;
         }
+
+        // Safe fallback for emergency contact so it never throws a .trim() error
+        const cleanEmergency = emergencyContact ? emergencyContact.trim() : "";
 
         const userExists = await User.findOne({ username: cleanUsername });
         if (userExists) {
@@ -38,14 +46,20 @@ exports.addResident = async (req, res) => {
             return res.status(400).json({ message: `Bed slot ${targetBed} is occupied.` });
         }
 
-        // Send plain text password straight to User.create (Pre-save hook will hash it)
-        const newUserAccount = await User.create({
-            username: cleanUsername,
-            password: password, 
-            role: 'student',
-            phoneNumber: formattedPhone,
-            receiveSMSAlerts: true 
-        });
+        // 2. Wrap Document Creations in clear tracking blocks
+        let newUserAccount;
+        try {
+            newUserAccount = await User.create({
+                username: cleanUsername,
+                password: password, 
+                role: 'student',
+                phoneNumber: formattedPhone,
+                receiveSMSAlerts: true 
+            });
+        } catch (userError) {
+            console.error("--- USER COLLECTION DB SAVE CRASH ---", userError);
+            return res.status(500).json({ message: 'Failed creating auth account structure. Check schema constraints.', error: userError.message });
+        }
 
         const newResident = await Resident.create({
             userId: newUserAccount._id,
@@ -54,7 +68,7 @@ exports.addResident = async (req, res) => {
             roomNumber: cleanRoom,
             bedNumber: targetBed,
             phoneNumber: formattedPhone,
-            emergencyContact: emergencyContact.trim(),
+            emergencyContact: cleanEmergency,
             status: 'Active',
             checkInDate: new Date()
         });
@@ -65,11 +79,11 @@ exports.addResident = async (req, res) => {
 
         res.status(201).json({ message: 'Resident checked in cleanly!', newResident });
     } catch (error) {
-        console.error("--- BACKEND REGISTRATION CRASH LOG ---", error.message);
-        res.status(500).json({ message: 'Internal server processing error', error: error.message });
+        // Detailed error reporting back to the frontend for debugging temporary issues
+        console.error("--- BACKEND REGISTRATION CRASH LOG ---", error);
+        res.status(500).json({ message: 'Internal server processing error', error: error.message, stack: error.stack });
     }
 };
-
 exports.getAllResidents = async (req, res) => {
     try {
         const residents = await Resident.find().sort({ createdAt: -1 });
