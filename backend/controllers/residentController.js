@@ -10,6 +10,8 @@ const bcrypt = require('bcryptjs');
 // ==========================================
 // backend/controllers/residentController.js
 
+// backend/controllers/residentController.js
+
 exports.addResident = async (req, res) => {
     try {
         const { fullName, username, password, roomNumber, bedNumber, phoneNumber, emergencyContact } = req.body;
@@ -74,9 +76,6 @@ exports.addResident = async (req, res) => {
         res.status(500).json({ message: 'Internal server processing error', error: error.message });
     }
 };
-// ==========================================
-// 2. FETCH ALL HISTORIC DIRECTORY RECORDS
-// ==========================================
 exports.getAllResidents = async (req, res) => {
     try {
         const residents = await Resident.find().sort({ createdAt: -1 });
