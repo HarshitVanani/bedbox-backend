@@ -1,36 +1,5 @@
 // backend/models/User.js
 const mongoose = require('mongoose');
-
-const UserSchema = new mongoose.Schema({
-    username: { 
-        type: String, 
-        required: true, 
-        unique: true,
-        trim: true 
-    },
-    password: { 
-        type: String, 
-        required: true 
-    },
-    role: { 
-        type: String, 
-        enum: ['admin', 'student'], 
-        default: 'student' 
-    },
-    phoneNumber: { 
-        type: String, 
-        unique: true, 
-        sparse: true 
-    },
-    // 🎯 ADD THIS EXACT LINE HERE
-    receiveSMSAlerts: {
-        type: Boolean,
-        default: true // Means "Alerts Enabled" by default when they create an account
-    }
-}, { timestamps: true });
-
-module.exports = mongoose.model('User', UserSchema);// backend/models/User.js
-const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const UserSchema = new mongoose.Schema({
@@ -60,8 +29,7 @@ const UserSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-// 🎯 AUTOMATIC PASSWORD HASHING HOOK
-// This hashes the plain text password safely right before it hits MongoDB
+// AUTOMATIC PASSWORD HASHING HOOK
 UserSchema.pre('save', async function (next) {
     if (!this.isModified('password')) return next();
     try {
