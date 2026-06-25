@@ -33,6 +33,7 @@ export default function Login() {
   };
 
   // Execution call to trigger backend auth route validation
+ // Execution call to trigger backend auth route validation
   const handleSignIn = async (e) => {
     e.preventDefault();
     setErrorMessage('');
@@ -45,9 +46,9 @@ export default function Login() {
 
     setLoading(true);
     try {
-      // 🚨 ULTIMATE FRONTEND EMERGENCY HARDCODED BYPASS 🚨
-      // This logs you in instantly on your laptop without touching Render or MongoDB!
-      if (username.trim().toLowerCase() === 'admin' && password === 'adminpassword123') {
+      // 🚨 CONDITIONAL FRONTEND EMERGENCY HARDCODED BYPASS 🚨
+      // Added condition: Only bypasses if they are actually trying to log in as an Admin
+      if (isAdmin && username.trim().toLowerCase() === 'admin' && password === 'adminpassword123') {
         
         const fakeUser = {
           _id: "000000000000000000000000",
@@ -67,7 +68,7 @@ export default function Login() {
         return; // Stop execution here!
       }
 
-      // Old network request code below (ignored during bypass)
+      // Sends network request to the live Render backend for ALL residents and non-bypass admins
       const response = await axios.post('https://bedbox-backend.onrender.com/api/auth/login', {
         username,
         password
@@ -87,7 +88,7 @@ export default function Login() {
       setLoading(false);
     }
   };
-  return (
+   return (
     <div className="min-h-screen bg-[#fafbfc] flex items-center justify-center p-4 antialiased font-sans">
       <div className="w-full max-w-5xl bg-white rounded-3xl shadow-xl shadow-slate-100 border border-slate-100 flex overflow-hidden min-h-[600px]">
         
