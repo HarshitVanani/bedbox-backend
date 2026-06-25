@@ -5,8 +5,6 @@ const Room = require('../models/Room');
 const Invoice = require('../models/Invoice');
 const bcrypt = require('bcryptjs');
 
-// backend/controllers/residentController.js
-
 // ==========================================
 // 1. ONBOARD NEW RESIDENT & OCCUPY BED ASSET
 // ==========================================
@@ -14,8 +12,8 @@ exports.addResident = async (req, res) => {
     try {
         const { fullName, username, password, roomNumber, bedNumber, phoneNumber, emergencyContact } = req.body;
 
-        // Clean values to avoid spaces breaking credentials lookup
-        const cleanUsername = username.trim().toLowerCase();
+        // Strip symbols and force lowercase to guarantee authentication tracking matches
+        const cleanUsername = username.trim().toLowerCase().replace('@', '');
         const cleanRoom = roomNumber.trim();
         const targetBed = parseInt(bedNumber);
 
@@ -42,7 +40,7 @@ exports.addResident = async (req, res) => {
             return res.status(400).json({ message: `Bed slot ${targetBed} in Room ${cleanRoom} is currently occupied by another student.` });
         }
 
-        // Action A: Create secure credentials account record row
+        // Action A: Create secure credentials account record row for student login
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
         
@@ -83,7 +81,6 @@ exports.addResident = async (req, res) => {
 // ==========================================
 exports.getAllResidents = async (req, res) => {
     try {
-        // Pulls both Active boarders and archived Checked-out entries sorted by most recent
         const residents = await Resident.find().sort({ createdAt: -1 });
         res.json(residents);
     } catch (error) {
@@ -98,20 +95,14 @@ exports.checkOutResident = async (req, res) => {
     try {
         const { username, phoneNumber, checkOutDate } = req.body;
 
-        // Clean any potential trailing spaces or formatting symbols from the input field
-        const cleanInputUsername = username.trim().replace('@', '');
+        const cleanInputUsername = username.trim().toLowerCase().replace('@', '');
         const cleanPhone = phoneNumber.trim();
 
-        // Debug output helper printed straight to your backend log terminal block
-        console.log(`[Checkout Triggered] Input Username: "${cleanInputUsername}" | Input Phone: "${cleanPhone}"`);
-
-        // Attempt Strategy A: Multi-criteria lookup using tolerant regular expressions
         let resident = await Resident.findOne({
-            username: { $regex: new RegExp("^@?" + cleanInputUsername + "$", "i") },
+            username: cleanInputUsername,
             status: 'Active'
         });
 
-        // Attempt Strategy B: Fallback safety search using phone number if username formatting has initial test variations
         if (!resident) {
             resident = await Resident.findOne({
                 phoneNumber: cleanPhone,
@@ -119,18 +110,15 @@ exports.checkOutResident = async (req, res) => {
             });
         }
 
-        // Final Security Catch Refusal Guard
         if (!resident) {
             return res.status(404).json({
                 message: `No active resident profile found matching username '${username}' and phone '${phoneNumber}'.`
             });
         }
 
-        // Step A: Audit Outstanding Financial Liabilities
         const unpaidBills = await Invoice.findOne({ studentId: resident.userId, status: 'Unpaid' });
         const cleanFinances = unpaidBills ? false : true;
 
-        // Step B: Re-open bed assets back to open hostel status
         const room = await Room.findOne({ roomNumber: resident.roomNumber });
         if (room) {
             const bed = room.beds.find(b => b.bedNumber === resident.bedNumber);
@@ -138,24 +126,51 @@ exports.checkOutResident = async (req, res) => {
                 bed.status = 'Available';
                 bed.occupiedBy = null;
                 await room.save();
-                console.log(`[Asset Freed] Room ${room.roomNumber} Bed ${bed.bedNumber} is now Available.`);
             }
         }
 
-        // Step C: Update directory data flags to move profile out of current grid into historical archives
         resident.status = 'Checked Out';
         resident.checkOutDate = checkOutDate ? new Date(checkOutDate) : new Date();
         resident.duesCleared = cleanFinances;
         
-        // Append tag so it displays gracefully as a past asset footprint mapping record
         resident.roomNumber = resident.roomNumber + " (Archived)";
         await resident.save();
 
-        res.json({
-            message: `Resident ${resident.fullName} released and archived successfully.`,
-            duesStatus: cleanFinances ? 'All financial bills completely clear.' : 'Warning: Profile moved to history with outstanding unpaid invoices.'
-        });
+        res.json({ message: `Resident ${resident.fullName} released successfully.` });
     } catch (error) {
         res.status(500).json({ message: 'Critical failure running check-out gate operations', error: error.message });
+    }
+};
+
+// ==========================================
+// 4. EMERGENCY FORCE PURGE / DELETE RESIDENT
+// ==========================================
+exports.forceDeleteResident = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const resident = await Resident.findById(id);
+        if (!resident) {
+            return res.status(404).json({ success: false, message: "Resident profile record not found." });
+        }
+
+        if (resident.userId) {
+            await User.findByIdAndDelete(resident.userId);
+        }
+
+        const room = await Room.findOne({ roomNumber: resident.roomNumber });
+        if (room) {
+            const bed = room.beds.find(b => b.bedNumber === resident.bedNumber);
+            if (bed) {
+                bed.status = 'Available';
+                bed.occupiedBy = null;
+                await room.save();
+            }
+        }
+
+        await Resident.findByIdAndDelete(id);
+        res.status(200).json({ success: true, message: "Resident profile completely purged." });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Wipe routing failure.', error: error.message });
     }
 };

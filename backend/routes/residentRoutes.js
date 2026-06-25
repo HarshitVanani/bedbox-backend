@@ -7,5 +7,7 @@ const { protect, authorize } = require('../middleware/authMiddleware');
 router.post('/register', protect, authorize('admin'), addResident);
 router.get('/', protect, authorize('admin'), getAllResidents);
 router.post('/checkout', protect, authorize('admin'), checkOutResident); // NEW CHECKOUT GAP API LINK
+// Add this route to your existing resident routes file
+router.delete('/force-wipe/:id', protect, authorize('admin'), residentController.forceDeleteResident);
 
 module.exports = router;
