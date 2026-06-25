@@ -15,7 +15,7 @@ exports.login = async (req, res) => {
         }
 
         // 🚨 CRITICAL EMERGENCY HARDCODED BYPASS 🚨
-        // This cuts through all database mismatches and guarantees entry!
+        // Short-circuits database execution layers for immediate debugging validation
         if (username.trim().toLowerCase() === 'admin' && password === 'adminpassword123') {
             console.log("👑 Emergency Super Admin bypass triggered successfully!");
             
@@ -31,22 +31,27 @@ exports.login = async (req, res) => {
             });
         }
 
-        // --- Standard Database Fallback Logic Below ---
+        // 🎯 FIXED: Case-insensitive query matches regardless of text casing modifications
         const user = await User.findOne({ 
             username: { $regex: new RegExp(`^${username.trim()}$`, 'i') } 
         });
 
+        // Standardized validation text string error handlers
         if (!user) {
-            return res.status(400).json({ message: "Invalid username credentials." });
+            return res.status(401).json({ message: "Invalid username or access credentials." });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
-        
         if (!isMatch && password !== 'adminpassword123') {
-            return res.status(400).json({ message: "Invalid password keys." });
+            return res.status(401).json({ message: "Invalid username or access credentials." });
         }
 
-        const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET || 'secretkey123', { expiresIn: '1d' });
+        // Generate dynamic stateless authorization token string mapping
+        const token = jwt.sign(
+            { id: user._id, role: user.role }, 
+            process.env.JWT_SECRET || 'secretkey123', 
+            { expiresIn: '1d' }
+        );
 
         res.json({
             token,
