@@ -8,63 +8,62 @@ const bcrypt = require('bcryptjs');
 // ==========================================
 // 1. ONBOARD NEW RESIDENT & OCCUPY BED ASSET
 // ==========================================
+// backend/controllers/residentController.js
+
 exports.addResident = async (req, res) => {
     try {
         const { fullName, username, password, roomNumber, bedNumber, phoneNumber, emergencyContact } = req.body;
 
-        // Strip symbols and force lowercase to guarantee authentication tracking matches
         const cleanUsername = username.trim().toLowerCase().replace('@', '');
         const cleanRoom = roomNumber.trim();
         const targetBed = parseInt(bedNumber);
 
-        // Guard Check A: Verify username uniqueness across User Collection
+        let formattedPhone = phoneNumber.trim();
+        if (formattedPhone.length === 10 && !formattedPhone.startsWith('+')) {
+            formattedPhone = `+91${formattedPhone}`;
+        }
+
         const userExists = await User.findOne({ username: cleanUsername });
         if (userExists) {
             return res.status(400).json({ message: 'This username is already allocated to an active account.' });
         }
 
-        // Guard Check B: Verify the target room document exists inside MongoDB
         const room = await Room.findOne({ roomNumber: cleanRoom });
         if (!room) {
-            return res.status(400).json({ message: `Room ${cleanRoom} does not exist in your Rooms & Bed Grid yet. Please create it first.` });
+            return res.status(400).json({ message: `Room ${cleanRoom} does not exist.` });
         }
 
-        // Guard Check C: Verify the bed index number exists inside that specific room array
         const bed = room.beds.find(b => b.bedNumber === targetBed);
         if (!bed) {
-            return res.status(400).json({ message: `Bed slot ${targetBed} does not exist inside Room ${cleanRoom}.` });
+            return res.status(400).json({ message: `Bed slot ${targetBed} does not exist.` });
         }
         
-        // Guard Check D: Verify that the slot is not already Occupied
         if (bed.status !== 'Available') {
-            return res.status(400).json({ message: `Bed slot ${targetBed} in Room ${cleanRoom} is currently occupied by another student.` });
+            return res.status(400).json({ message: `Bed slot ${targetBed} is occupied.` });
         }
 
-        // Action A: Create secure credentials account record row for student login
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-        
+        // 🎯 FIXED: Send the PLAIN TEXT password straight to User.create.
+        // Do not use bcrypt here; your User schema pre-save middleware will hash it correctly once!
         const newUserAccount = await User.create({
             username: cleanUsername,
-            password: hashedPassword,
+            password: password, // ◄ PASS RAW PLAIN TEXT
             role: 'student',
-            phoneNumber: phoneNumber.trim()
+            phoneNumber: formattedPhone,
+            receiveSMSAlerts: true 
         });
 
-        // Action B: Compile comprehensive resident profile record document
         const newResident = await Resident.create({
             userId: newUserAccount._id,
             fullName: fullName.trim(),
             username: cleanUsername,
             roomNumber: cleanRoom,
             bedNumber: targetBed,
-            phoneNumber: phoneNumber.trim(),
+            phoneNumber: formattedPhone,
             emergencyContact: emergencyContact.trim(),
             status: 'Active',
             checkInDate: new Date()
         });
 
-        // Action C: Flip asset tracking parameter state inside target room document array
         bed.status = 'Occupied';
         bed.occupiedBy = newUserAccount._id;
         await room.save();
@@ -75,7 +74,6 @@ exports.addResident = async (req, res) => {
         res.status(500).json({ message: 'Internal server processing error', error: error.message });
     }
 };
-
 // ==========================================
 // 2. FETCH ALL HISTORIC DIRECTORY RECORDS
 // ==========================================
@@ -145,32 +143,3 @@ exports.checkOutResident = async (req, res) => {
 // ==========================================
 // 4. EMERGENCY FORCE PURGE / DELETE RESIDENT
 // ==========================================
-exports.forceDeleteResident = async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        const resident = await Resident.findById(id);
-        if (!resident) {
-            return res.status(404).json({ success: false, message: "Resident profile record not found." });
-        }
-
-        if (resident.userId) {
-            await User.findByIdAndDelete(resident.userId);
-        }
-
-        const room = await Room.findOne({ roomNumber: resident.roomNumber });
-        if (room) {
-            const bed = room.beds.find(b => b.bedNumber === resident.bedNumber);
-            if (bed) {
-                bed.status = 'Available';
-                bed.occupiedBy = null;
-                await room.save();
-            }
-        }
-
-        await Resident.findByIdAndDelete(id);
-        res.status(200).json({ success: true, message: "Resident profile completely purged." });
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Wipe routing failure.', error: error.message });
-    }
-};
