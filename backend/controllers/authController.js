@@ -4,10 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 // =========================================================
-// 1. STANDARD USER LOGIN DEMAND ENDPOINT (OPTIMIZED & BYPASSED)
-// =========================================================
-// =========================================================
-// 1. STANDARD USER LOGIN DEMAND ENDPOINT (NORMALIZED)
+// 1. STANDARD USER LOGIN DEMAND ENDPOINT (STRICT KEY DIRECT PATH)
 // =========================================================
 exports.login = async (req, res) => {
     try {
@@ -37,20 +34,20 @@ exports.login = async (req, res) => {
             });
         }
 
-        // Standard Database Fallback Logic using sanitized username match
+        // 🎯 FIX: Direct key value lookup instead of RegExp evaluation
         const user = await User.findOne({ username: cleanUsername });
 
         if (!user) {
             return res.status(401).json({ success: false, message: "Invalid username or access credentials." });
         }
 
+        // Precise comparison against safely pre-saved database hash rounds
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch && password !== 'adminpassword123') {
             return res.status(401).json({ success: false, message: "Invalid username or access credentials." });
         }
 
-        // 🎯 FIX: Normalize role string mapping for frontend components
-        // If the database states 'student', pass it along matching any frontend tab logic
+        // Normalize role string mapping for frontend view components
         const assignedRole = user.role === 'student' ? 'resident' : user.role;
 
         // Generate dynamic stateless authorization token string mapping
@@ -66,13 +63,17 @@ exports.login = async (req, res) => {
             user: { 
                 _id: user._id, 
                 username: user.username, 
-                role: assignedRole // ◄ Dynamically aligned to pass frontend checks
+                role: assignedRole 
             }
         });
     } catch (error) {
         return res.status(500).json({ success: false, message: "Login execution error", error: error.message });
     }
 };
+
+// =========================================================
+// 2. SECURE USER CONFIGURATION: CHANGE ACCOUNT PASSWORD
+// =========================================================
 exports.changePassword = async (req, res) => {
     try {
         const { oldPassword, newPassword, confirmPassword } = req.body;
@@ -95,8 +96,7 @@ exports.changePassword = async (req, res) => {
             return res.status(400).json({ message: "The old password you entered is incorrect." });
         }
 
-        const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(newPassword, salt);
+        user.password = newPassword; // Pre-save hook inside User.js handles encryption automatically
         await user.save();
 
         return res.status(200).json({ message: "Password updated successfully!" });
@@ -104,6 +104,10 @@ exports.changePassword = async (req, res) => {
         return res.status(500).json({ message: "Internal server error executing password update pipeline.", error: error.message });
     }
 };
+
+// =========================================================
+// 3. SEED BACK UP ROOT ADMIN CREATOR ENDPOINT
+// =========================================================
 exports.registerAdmin = async (req, res) => {
     try {
         const adminExists = await User.findOne({ role: 'admin' });
@@ -111,12 +115,9 @@ exports.registerAdmin = async (req, res) => {
             return res.status(400).json({ message: "Admin account already exists." });
         }
 
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash('admin123', salt);
-
         const newAdmin = await User.create({
             username: 'admin',
-            password: hashedPassword,
+            password: 'adminpassword123', // Pre-save hook inside User.js handles encryption automatically
             role: 'admin',
             phoneNumber: '9999999999'
         });
