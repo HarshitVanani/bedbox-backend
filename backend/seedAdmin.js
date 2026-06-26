@@ -7,8 +7,8 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 // 🎯 FIXED: Hardcoded your exact cloud connection string to target MongoDB Atlas directly
-const MONGO_URI = 'mongodb+srv://admin:G5O6wD6zuQ1JJYUg@cluster0.o53rinz.mongodb.net/bedbox_hostel?retryWrites=true&w=majority&appName=Cluster0';
-
+// Locate this line around line 10 and swap it to your new link:
+const MONGO_URI = 'mongodb+srv://admin:G5O6wD6zuQ1JJYUg@clusterfresh.c1u7y48.mongodb.net/bedbox_hostel?retryWrites=true&w=majority&appName=ClusterFresh';
 const seedInitialAdmin = async () => {
     try {
         await mongoose.connect(MONGO_URI);
