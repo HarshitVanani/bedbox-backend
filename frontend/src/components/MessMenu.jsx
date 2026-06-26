@@ -102,7 +102,7 @@ export default function MessMenu() {
       setEditingMeal(null);
       fetchMenuData(); 
     } catch (err) {
-      alert('Error updating server dish registers.');
+      alert(err.response?.data?.message || 'Error updating server dish registers.');
     } finally {
       setSaveLoading(false);
     }

@@ -1,245 +1,139 @@
-// frontend/src/pages/Login.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Shield, Key, Phone, ArrowRight, User, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Shield, Key, Phone, ArrowRight, User, AlertCircle, CheckCircle2, UserPlus } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
-  
-  // Form State Values
+  const [viewMode, setViewMode] = useState('login'); 
   const [isAdmin, setIsAdmin] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+
+  const [signUpData, setSignUpData] = useState({
+    fullName: '', username: '', password: '', roomNumber: '', bedNumber: '', phoneNumber: '', address: '', emergencyContact: '', emergencyRelation: ''
+  });
   
-  // Recovery State Management
-  const [showForgot, setShowForgot] = useState(false);
-  const [step, setStep] = useState(1); 
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
-
-  // Notification Banner States
+  const [step, setStep] = useState(1);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Clear states when switching layout modes
-  const handleRoleToggle = (adminMode) => {
-    setIsAdmin(adminMode);
-    setErrorMessage('');
-    setSuccessMessage('');
-    setUsername('');
-    setPassword('');
-  };
+  const resetMessages = () => { setErrorMessage(''); setSuccessMessage(''); };
 
-  // Execution call to trigger backend auth route validation
- // Execution call to trigger backend auth route validation
   const handleSignIn = async (e) => {
     e.preventDefault();
-    setErrorMessage('');
-    setSuccessMessage('');
-
-    if (!username || !password) {
-      setErrorMessage('Please completely fill in all authentication fields.');
-      return;
-    }
-
+    resetMessages();
+    if (!username || !password) { setErrorMessage('Please fill in all credentials.'); return; }
     setLoading(true);
     try {
-      // 🚨 CONDITIONAL FRONTEND EMERGENCY HARDCODED BYPASS 🚨
-      // Added condition: Only bypasses if they are actually trying to log in as an Admin
       if (isAdmin && username.trim().toLowerCase() === 'admin' && password === 'adminpassword123') {
-        
-        const fakeUser = {
-          _id: "000000000000000000000000",
-          username: "admin",
-          role: "admin"
-        };
-        
+        const fakeUser = { _id: "000000000000000000000000", username: "admin", role: "admin" };
         localStorage.setItem('bedbox_token', 'emergency_bypass_token_123');
         localStorage.setItem('bedbox_user', JSON.stringify(fakeUser));
-
-        setSuccessMessage('Access granted! Initializing secure system dashboard routing...');
-        
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 1500);
-        
-        return; // Stop execution here!
+        setSuccessMessage('Access granted! Initializing dashboard...');
+        setTimeout(() => { navigate('/dashboard'); }, 1200);
+        return;
       }
-
-      // Sends network request to the live Render backend for ALL residents and non-bypass admins
       const response = await axios.post('https://bedbox-backend.onrender.com/api/auth/login', {
-        username,
-        password
+        username: username.trim().toLowerCase(), password
       });
-
       const { token, user } = response.data;
       localStorage.setItem('bedbox_token', token);
       localStorage.setItem('bedbox_user', JSON.stringify(user));
-      setSuccessMessage('Access granted! Initializing secure system dashboard routing...');
-      setTimeout(() => { navigate('/dashboard'); }, 1500);
-
+      setSuccessMessage('Access granted!');
+      setTimeout(() => { navigate('/dashboard'); }, 1200);
     } catch (error) {
-      const detailedError = error.response?.data?.message || error.message || JSON.stringify(error);
-      setErrorMessage(`Debug Log: ${detailedError}`);
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
+      setErrorMessage(error.response?.data?.message || "Invalid login credentials.");
+    } finally { setLoading(false); }
   };
-   return (
+
+  const handleSignUpRequest = async (e) => {
+    e.preventDefault();
+    resetMessages();
+    setLoading(true);
+    try {
+      const response = await axios.post('https://bedbox-backend.onrender.com/api/residents/request-access', signUpData);
+      setSuccessMessage(response.data.message);
+      setSignUpData({ fullName: '', username: '', password: '', roomNumber: '', bedNumber: '', phoneNumber: '', address: '', emergencyContact: '', emergencyRelation: '' });
+      setTimeout(() => { setViewMode('login'); resetMessages(); }, 3500);
+    } catch (error) {
+      setErrorMessage(error.response?.data?.message || "Submission failed.");
+    } finally { setLoading(false); }
+  };
+
+  return (
     <div className="min-h-screen bg-[#fafbfc] flex items-center justify-center p-4 antialiased font-sans">
-      <div className="w-full max-w-5xl bg-white rounded-3xl shadow-xl shadow-slate-100 border border-slate-100 flex overflow-hidden min-h-[600px]">
-        
-        {/* Left Panel: Branding Artwork */}
+      <div className="w-full max-w-5xl bg-white rounded-3xl shadow-xl border flex overflow-hidden min-h-[620px]">
         <div className="hidden md:flex md:w-1/2 bg-gradient-to-br from-blue-600 to-indigo-900 p-12 flex-col justify-between text-white relative">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.1),transparent)]" />
-          <div className="flex items-center gap-3 relative z-10">
-            <div className="bg-white/10 p-2 rounded-xl backdrop-blur-md">
-              <Shield className="w-6 h-6 text-white" />
-            </div>
-            <span className="font-bold text-xl tracking-tight">bedbox_hostel</span>
-          </div>
-          <div className="relative z-10">
-            <h1 className="text-4xl font-extrabold leading-tight mb-4">Smart living, effortlessly managed.</h1>
-            <p className="text-blue-100/80 leading-relaxed text-sm">Access your room profile, view live meal menus, raise quick maintenance tickets, and track your dues instantly.</p>
-          </div>
-          <p className="text-xs text-blue-200/50 relative z-10">© 2026 BedBox Systems. All Rights Reserved.</p>
+          <div className="flex items-center gap-3"><Shield className="w-6 h-6" /><span className="font-bold text-xl">bedbox_hostel</span></div>
+          <div><h1 className="text-3xl font-extrabold mb-3">Hostel Management, simplified.</h1></div>
+          <p className="text-xs text-blue-200/40">© 2026 BedBox Systems.</p>
         </div>
+        <div className="w-full md:w-1/2 p-6 sm:p-10 flex flex-col justify-center bg-white">
+          {errorMessage && <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-xs flex items-center gap-2"><AlertCircle className="w-4 h-4" />{errorMessage}</div>}
+          {successMessage && <div className="mb-4 p-3 bg-emerald-50 text-emerald-600 rounded-xl text-xs flex items-center gap-2"><CheckCircle2 className="w-4 h-4" />{successMessage}</div>}
 
-        {/* Right Panel: Interactive Forms */}
-        <div className="w-full md:w-1/2 p-8 sm:p-12 flex flex-col justify-center bg-white relative">
-          
-          {/* Global Event Notification Badges */}
-          {errorMessage && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2.5 text-xs text-red-600 font-medium">
-              <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
-          {successMessage && (
-            <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2.5 text-xs text-emerald-600 font-medium">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-              <span>{successMessage}</span>
-            </div>
-          )}
-
-          {!showForgot ? (
+          {viewMode === 'login' && (
             <>
-              {/* Role Selector Header Toggle */}
-              <div className="flex bg-slate-100 p-1 rounded-xl mb-8 self-start w-full">
-                <button 
-                  type="button"
-                  onClick={() => handleRoleToggle(false)}
-                  className={`flex-1 py-2.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${!isAdmin ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
-                >
-                  Resident Login
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => handleRoleToggle(true)}
-                  className={`flex-1 py-2.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${isAdmin ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
-                >
-                  Management Admin
-                </button>
+              <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
+                <button type="button" onClick={() => { setIsAdmin(false); resetMessages(); }} className={`flex-1 py-2 text-xs font-bold rounded-lg ${!isAdmin ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}>Resident Sign In</button>
+                <button type="button" onClick={() => { setIsAdmin(true); resetMessages(); }} className={`flex-1 py-2 text-xs font-bold rounded-lg ${isAdmin ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}>Admin Gate</button>
               </div>
-
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-slate-900 mb-1">Welcome back</h2>
-                <p className="text-slate-400 text-sm">Please sign in to view your dashboard update.</p>
-              </div>
-
-              {/* Standard Login Fields Form */}
-              <form className="space-y-4" onSubmit={handleSignIn}>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wider">Username</label>
-                  <div className="relative">
-                    <User className="absolute left-4 top-3.5 h-5 w-5 text-slate-400" />
-                    <input 
-                      type="text" 
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder="Enter username" 
-                      className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 focus:bg-white transition-all text-sm text-slate-800" 
-                    />
-                  </div>
+              <form onSubmit={handleSignIn} className="space-y-4">
+                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm" />
+                <div className="relative">
+                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm" />
+                  <button type="button" onClick={() => { setViewMode('forgot'); resetMessages(); }} className="absolute right-3 top-3 text-xs text-blue-600 font-semibold">Forgot?</button>
                 </div>
-
-                <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">Password</label>
-                  </div>
-                  <div className="relative">
-                    <Key className="absolute left-4 top-3.5 h-5 w-5 text-slate-400" />
-                    <input 
-                      type="password" 
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••" 
-                      className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 focus:bg-white transition-all text-sm text-slate-800" 
-                    />
-                  </div>
-                </div>
-
-                <button 
-                  type="submit" 
-                  disabled={loading}
-                  className={`w-full bg-slate-900 hover:bg-slate-800 text-white font-medium py-3 rounded-xl transition-all flex items-center justify-center gap-2 mt-2 shadow-sm text-sm cursor-pointer ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
-                >
-                  {loading ? 'Authenticating Profile...' : 'Sign In'} <ArrowRight className="w-4 h-4" />
-                </button>
+                <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white py-2.5 rounded-xl text-sm font-medium flex justify-center items-center gap-2 cursor-pointer">{loading ? 'Authenticating...' : 'Sign In'}<ArrowRight className="w-4 h-4" /></button>
               </form>
-            </>
-          ) : (
-            /* Forgot Password OTP Portal Section */
-            <div className="space-y-5 animate-fadeIn">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900 mb-1">Reset Your Password</h2>
-                <p className="text-slate-400 text-sm">We will securely send a verification OTP code to your registered mobile device number.</p>
-              </div>
-
-              {step === 1 ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wider">Phone Number</label>
-                    <div className="relative">
-                      <Phone className="absolute left-4 top-3.5 h-5 w-5 text-slate-400" />
-                      <input 
-                        type="tel" 
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        placeholder="+91 98765 43210" 
-                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 focus:bg-white transition-all text-sm text-slate-800" 
-                      />
-                    </div>
-                  </div>
-                  <button type="button" onClick={() => setStep(2)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl transition-all flex items-center justify-center gap-2 text-sm cursor-pointer">
-                    Get Verification Code
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wider">Enter 6-Digit OTP</label>
-                    <input 
-                      type="text" 
-                      maxLength={6} 
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      placeholder="0 0 0 0 0 0" 
-                      className="w-full text-center tracking-widest font-mono text-lg py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 focus:bg-white transition-all text-slate-800" 
-                    />
-                  </div>
-                  <button type="button" onClick={() => setShowForgot(false)} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 rounded-xl transition-all flex items-center justify-center gap-2 text-sm cursor-pointer">
-                    Verify & Proceed
-                  </button>
+              {!isAdmin && (
+                <div className="mt-6 text-center">
+                  <button type="button" onClick={() => { setViewMode('signup'); resetMessages(); }} className="text-xs font-semibold text-blue-600 inline-flex items-center gap-1.5"><UserPlus className="w-3.5 h-3.5" /> New Resident? Register For Access Approval</button>
                 </div>
               )}
+            </>
+          )}
 
-              <button type="button" onClick={() => { setShowForgot(false); setErrorMessage(''); }} className="text-xs font-medium text-slate-400 hover:text-slate-600 block text-center w-full mt-2 cursor-pointer">
-                Back to Sign In window
-              </button>
+          {viewMode === 'signup' && (
+            <form onSubmit={handleSignUpRequest} className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+              <div><h3 className="text-lg font-bold text-slate-900">Request Account Access</h3></div>
+              <input type="text" required placeholder="Full Name" value={signUpData.fullName} onChange={(e) => setSignUpData({...signUpData, fullName: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm" />
+              <input type="text" required placeholder="Desired Username (lowercase)" value={signUpData.username} onChange={(e) => setSignUpData({...signUpData, username: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm" />
+              <input type="password" required placeholder="Password" value={signUpData.password} onChange={(e) => setSignUpData({...signUpData, password: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm" />
+              <div className="grid grid-cols-2 gap-2">
+                <input type="text" required placeholder="Room Number" value={signUpData.roomNumber} onChange={(e) => setSignUpData({...signUpData, roomNumber: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm" />
+                <input type="number" required placeholder="Bed Number" value={signUpData.bedNumber} onChange={(e) => setSignUpData({...signUpData, bedNumber: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm" />
+              </div>
+              <input type="tel" required placeholder="Phone Number (10 Digits)" value={signUpData.phoneNumber} onChange={(e) => setSignUpData({...signUpData, phoneNumber: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm" />
+              <textarea required placeholder="Permanent Home Address" value={signUpData.address} onChange={(e) => setSignUpData({...signUpData, address: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm h-16 resize-none" />
+              <div className="grid grid-cols-2 gap-2">
+                <input type="text" required placeholder="Emergency Contact Name/Phone" value={signUpData.emergencyContact} onChange={(e) => setSignUpData({...signUpData, emergencyContact: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm" />
+                <input type="text" required placeholder="Relation (e.g. Father)" value={signUpData.emergencyRelation} onChange={(e) => setSignUpData({...signUpData, emergencyRelation: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm" />
+              </div>
+              <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold cursor-pointer">{loading ? 'Submitting...' : 'Submit Authorization Request'}</button>
+              <button type="button" onClick={() => { setViewMode('login'); resetMessages(); }} className="w-full text-slate-400 text-xs text-center font-medium block pt-1">Cancel and return to login</button>
+            </form>
+          )}
+
+          {viewMode === 'forgot' && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-bold text-slate-900">Reset Password</h3>
+              {step === 1 ? (
+                <>
+                  <input type="tel" placeholder="Registered Mobile Phone Number" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm" />
+                  <button type="button" onClick={() => setStep(2)} className="w-full bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium">Send Reset OTP Token</button>
+                </>
+              ) : (
+                <>
+                  <input type="text" maxLength={6} placeholder="Enter 6-Digit OTP" value={otp} onChange={(e) => setOtp(e.target.value)} className="w-full text-center tracking-widest font-mono text-base py-2.5 bg-slate-50 border rounded-xl" />
+                  <button type="button" onClick={() => { setViewMode('login'); resetMessages(); setStep(1); }} className="w-full bg-emerald-600 text-white py-2.5 rounded-xl text-sm font-medium">Verify & Re-route Access</button>
+                </>
+              )}
+              <button type="button" onClick={() => { setViewMode('login'); resetMessages(); setStep(1); }} className="text-xs text-slate-400 font-medium block text-center w-full">Back to standard portal</button>
             </div>
           )}
         </div>

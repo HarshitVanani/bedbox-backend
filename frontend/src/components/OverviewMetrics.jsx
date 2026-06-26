@@ -1,9 +1,8 @@
-// frontend/src/components/OverviewMetrics.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { 
   Users, Bed, ClipboardList, DollarSign, 
-  LogIn, LogOut, CheckCircle, RefreshCw, Activity
+  RefreshCw, Activity, Clock, UserCheck, UserX
 } from 'lucide-react';
 
 export default function OverviewMetrics() {
@@ -13,13 +12,32 @@ export default function OverviewMetrics() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
 
-  const pullSystemStats = async () => {
+  // --- APPROVAL PIPELINE STATES ---
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // --- FIXED: FETCH PENDING REGISTRATIONS WITH API CONFIG HEADERS ---
+  const fetchPendingRequests = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('bedbox_token');
+      const apiConfig = { headers: { Authorization: `Bearer ${token}` } };
+      
+      const response = await axios.get('https://bedbox-backend.onrender.com/api/residents/pending-requests', apiConfig);
+      if (Array.isArray(response.data)) {
+        setPendingRequests(response.data);
+      }
+    } catch (error) {
+      console.error("Failed fetching approval queues:", error);
+    }
+  }, []);
+
+  // --- FIXED: SYSTEM STATS ENHANCED FOR DYNAMIC SYNC ---
+  const pullSystemStats = useCallback(async () => {
     try {
       setSyncing(true);
       const token = localStorage.getItem('bedbox_token');
       const apiConfig = { headers: { Authorization: `Bearer ${token}` } };
 
-      // 🎯 UPDATED: Changed from localhost to your live cloud Render URLs
       const [rooms, residents, complaints, billing] = await Promise.allSettled([
         axios.get('https://bedbox-backend.onrender.com/api/rooms', apiConfig),
         axios.get('https://bedbox-backend.onrender.com/api/residents', apiConfig),
@@ -27,18 +45,15 @@ export default function OverviewMetrics() {
         axios.get('https://bedbox-backend.onrender.com/api/finance', apiConfig)
       ]);
 
-      // 1. Bed Capacities Dynamic Sync
       let calculatedTotal = 0;
       let calculatedOccupied = 0;
       
       if (rooms.status === 'fulfilled' && Array.isArray(rooms.value.data)) {
         rooms.value.data.forEach(r => {
           if (Array.isArray(r.beds)) {
-            // Count total physical bed structures deployed in the room schema array
             calculatedTotal += r.beds.length;
             calculatedOccupied += r.beds.filter(b => b.isOccupied || b.status === 'Occupied' || b.occupiedBy).length;
           } else {
-            // Document property fallback mappings
             calculatedTotal += r.capacity || r.totalBeds || 0;
             if (r.occupiedCount !== undefined) {
               calculatedOccupied += r.occupiedCount;
@@ -49,10 +64,8 @@ export default function OverviewMetrics() {
         });
       }
       
-      // Safety baseline fallback if no rooms are returned during system startup
       if (calculatedTotal === 0) calculatedTotal = 6;
 
-      // 2. Map Active Residents & Gate Indicators
       let boardersCount = 0, extractedLogs = [];
       if (residents.status === 'fulfilled' && Array.isArray(residents.value.data)) {
         boardersCount = residents.value.data.filter(r => r.status === 'Active').length;
@@ -64,21 +77,17 @@ export default function OverviewMetrics() {
         }));
       }
 
-      // 3. Map Complaints
       let openTickets = 0;
       if (complaints.status === 'fulfilled' && Array.isArray(complaints.value.data)) {
         openTickets = complaints.value.data.filter(c => c.trackingState === 'Pending' || c.status === 'Pending' || c.trackingState === 'Unresolved').length;
       }
 
-      // 4. Outstanding Invoices Schema Fallback Check
       let outstandingAmount = 0;
       let invoiceData = [];
 
-      // Check if billing response returned arrays successfully
       if (billing.status === 'fulfilled' && Array.isArray(billing.value.data)) {
         invoiceData = billing.value.data;
       } else {
-        // 🎯 UPDATED ENDPOINT FALLBACK LOOP: Set to live Render API URL map
         try {
           const fallbackRes = await axios.get('https://bedbox-backend.onrender.com/api/invoices', apiConfig);
           if (Array.isArray(fallbackRes.data)) invoiceData = fallbackRes.data;
@@ -90,7 +99,6 @@ export default function OverviewMetrics() {
         }
       }
 
-      // Compute calculations matching your precise visual key mappings
       if (invoiceData.length > 0) {
         invoiceData.forEach(inv => {
           const currentStatus = inv.ledgerStatus || inv.status;
@@ -122,13 +130,42 @@ export default function OverviewMetrics() {
       setLoading(false);
       setSyncing(false);
     }
+  }, []);
+
+  // --- FIXED: APPROVE / REJECT CLICK HANDLER WITH CONFIG HEADERS ---
+  const handleApprovalAction = async (requestId, action) => {
+    setActionLoading(true);
+    try {
+      const token = localStorage.getItem('bedbox_token');
+      const apiConfig = { headers: { Authorization: `Bearer ${token}` } };
+      
+      const response = await axios.post('https://bedbox-backend.onrender.com/api/residents/process-approval', {
+        requestId,
+        action
+      }, apiConfig);
+      
+      alert(response.data.message);
+      
+      fetchPendingRequests();
+      pullSystemStats();
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to process admin action.");
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   useEffect(() => {
     pullSystemStats();
-    const refreshTimer = setInterval(pullSystemStats, 10000);
+    fetchPendingRequests();
+    
+    const refreshTimer = setInterval(() => {
+      pullSystemStats();
+      fetchPendingRequests();
+    }, 10000);
+    
     return () => clearInterval(refreshTimer);
-  }, []);
+  }, [pullSystemStats, fetchPendingRequests]);
 
   if (loading) return <div className="text-xs font-medium text-slate-400 animate-pulse p-4">Syncing live database metrics...</div>;
 
@@ -141,14 +178,13 @@ export default function OverviewMetrics() {
           <h4 className="text-sm font-bold text-slate-800">Operational Summary Matrix</h4>
           <p className="text-[11px] text-slate-400">Live indicators compiled from student roster, financial records, and facility reports.</p>
         </div>
-        <button onClick={pullSystemStats} disabled={syncing} className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl transition-all text-[11px] font-bold flex items-center gap-1.5 border border-slate-200 cursor-pointer">
+        <button onClick={() => { pullSystemStats(); fetchPendingRequests(); }} disabled={syncing} className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl transition-all text-[11px] font-bold flex items-center gap-1.5 border border-slate-200 cursor-pointer">
           <RefreshCw className={`w-3 h-3 ${syncing ? 'animate-spin' : ''}`} /> Sync Indicators
         </button>
       </div>
 
       {/* METRIC CARD BAR */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        
         <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm flex items-center justify-between">
           <div className="space-y-0.5">
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Bed Occupancy Ratio</p>
@@ -180,12 +216,60 @@ export default function OverviewMetrics() {
           </div>
           <div className="p-2.5 bg-red-50 text-red-600 rounded-xl"><DollarSign className="w-4 h-4" /></div>
         </div>
+      </div>
 
+      {/* --- PENDING APPROVALS QUEUE SYSTEM DISPLAY --- */}
+      <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
+        <div className="flex items-center gap-2 mb-4">
+          <Clock className="w-4 h-4 text-amber-500" />
+          <h5 className="text-xs font-bold text-slate-800">Pending Gate Access Requests ({pendingRequests.length})</h5>
+        </div>
+
+        {pendingRequests.length === 0 ? (
+          <p className="text-xs text-slate-400 italic bg-slate-50 p-4 rounded-xl text-center">No outstanding registration approval requests found.</p>
+        ) : (
+          <div className="space-y-3">
+            {pendingRequests.map((request) => (
+              <div key={request._id} className="p-4 bg-slate-50 border border-slate-100 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="text-left space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-800 text-xs">{request.fullName}</span>
+                    <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-bold">@{request.username}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    <strong>Allocation:</strong> Room {request.roomNumber} • Bed {request.bedNumber} | <strong>Phone:</strong> {request.phoneNumber}
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    <strong>Address:</strong> {request.address} | <strong>Emergency:</strong> {request.emergencyContact} ({request.emergencyRelation})
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+                  <button
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={() => handleApprovalAction(request._id, 'Rejected')}
+                    className="bg-red-50 hover:bg-red-100 text-red-600 px-2.5 py-1.5 rounded-lg transition-all cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold"
+                  >
+                    <UserX className="w-3.5 h-3.5" /> Reject
+                  </button>
+                  <button
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={() => handleApprovalAction(request._id, 'Approved')}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg transition-all cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold shadow-sm"
+                  >
+                    <UserCheck className="w-3.5 h-3.5" /> Approve & Register
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* LOWER DOUBLE COLUMN REGISTER GRIDS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
         <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm lg:col-span-2 space-y-3">
           <h5 className="text-xs font-bold text-slate-800">Live Gate Security Register Check</h5>
           <div className="divide-y divide-slate-100">
@@ -221,7 +305,6 @@ export default function OverviewMetrics() {
             ))}
           </div>
         </div>
-
       </div>
 
       {/* SYSTEM PERSISTENCE STATUS BADGE */}

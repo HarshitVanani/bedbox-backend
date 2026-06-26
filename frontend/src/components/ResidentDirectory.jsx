@@ -27,7 +27,6 @@ export default function ResidentDirectory() {
     try {
       setLoading(true);
       const token = localStorage.getItem('bedbox_token');
-      // 🎯 UPDATED: Target production cloud route
       const response = await axios.get('https://bedbox-backend.onrender.com/api/residents', {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -51,15 +50,25 @@ export default function ResidentDirectory() {
       alert('Please fully specify all student registration details.');
       return;
     }
+
+    // 🎯 FIX: Force lowercase and strip symbols on the frontend before dispatching to production backend
+    const sanitizedUsername = username.trim().toLowerCase().replace('@', '');
+
     try {
       setActionLoading(true);
       const token = localStorage.getItem('bedbox_token');
-      // 🎯 UPDATED: Target production cloud route
+      
       await axios.post('https://bedbox-backend.onrender.com/api/residents/register', {
-        fullName, username, password, roomNumber, bedNumber, phoneNumber, emergencyContact
+        fullName: fullName.trim(),
+        username: sanitizedUsername, // Send clean string configuration
+        password,
+        roomNumber: roomNumber.trim(),
+        bedNumber: parseInt(bedNumber),
+        phoneNumber: phoneNumber.trim(),
+        emergencyContact: emergencyContact.trim()
       }, { headers: { Authorization: `Bearer ${token}` } });
 
-      alert('Resident onboarded & bed slot marked Occupied!');
+      alert(`Resident onboarded successfully! Account created for @${sanitizedUsername}`);
       setFullName(''); setUsername(''); setPassword(''); setRoomNumber(''); setBedNumber(''); setPhoneNumber(''); setEmergencyContact('');
       fetchDirectoryLogs();
     } catch (err) {
@@ -79,16 +88,15 @@ export default function ResidentDirectory() {
     try {
       setActionLoading(true);
       const token = localStorage.getItem('bedbox_token');
-      // 🎯 UPDATED: Target production cloud route
       const response = await axios.post('https://bedbox-backend.onrender.com/api/residents/checkout', {
-        username: outUsername,
-        phoneNumber: outPhone,
+        username: outUsername.trim().toLowerCase().replace('@', ''),
+        phoneNumber: outPhone.trim(),
         checkOutDate: outDate
       }, { headers: { Authorization: `Bearer ${token}` } });
 
-      alert(`${response.data.message}\nFinancial Standing: ${response.data.duesStatus}`);
+      alert(`${response.data.message}`);
       setOutUsername(''); setOutPhone(''); setOutDate('');
-      fetchDirectoryLogs(); // Refresh active rosters and history deck simultaneously
+      fetchDirectoryLogs();
     } catch (err) {
       alert(err.response?.data?.message || 'Check-out process failure.');
     } finally {
@@ -225,7 +233,7 @@ export default function ResidentDirectory() {
 
       </div>
 
-      {/* BOTTOM ROW CARD: THE LONG COMPREHENSIVE HISTORICAL ACCOUNTING DECK */}
+      {/* BOTTOM ROW CARD: HISTORICAL ARCHIVE LEDGER */}
       <div className="w-full bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 overflow-hidden">
         <h4 className="font-bold text-sm text-slate-800 uppercase tracking-wider flex items-center gap-2">
           <History className="w-4.5 h-4.5 text-slate-700" /> Historic Archive Ledger (Alumni Register)
@@ -278,7 +286,6 @@ export default function ResidentDirectory() {
           </div>
         )}
       </div>
-
     </div>
   );
 }
