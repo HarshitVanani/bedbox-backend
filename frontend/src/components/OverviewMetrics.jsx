@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../utils/apiConfig';
 import { 
   Users, Bed, ClipboardList, DollarSign, 
   RefreshCw, Activity, Clock, UserCheck, UserX
@@ -22,7 +23,7 @@ export default function OverviewMetrics() {
       const token = localStorage.getItem('bedbox_token');
       const apiConfig = { headers: { Authorization: `Bearer ${token}` } };
       
-      const response = await axios.get('https://bedbox-backend.onrender.com/api/residents/pending-requests', apiConfig);
+      const response = await axios.get(`${API_BASE_URL}/api/residents/pending-requests`, apiConfig);
       if (Array.isArray(response.data)) {
         setPendingRequests(response.data);
       }
@@ -39,10 +40,10 @@ export default function OverviewMetrics() {
       const apiConfig = { headers: { Authorization: `Bearer ${token}` } };
 
       const [rooms, residents, complaints, billing] = await Promise.allSettled([
-        axios.get('https://bedbox-backend.onrender.com/api/rooms', apiConfig),
-        axios.get('https://bedbox-backend.onrender.com/api/residents', apiConfig),
-        axios.get('https://bedbox-backend.onrender.com/api/complaints', apiConfig),
-        axios.get('https://bedbox-backend.onrender.com/api/finance', apiConfig)
+        axios.get(`${API_BASE_URL}/api/rooms`, apiConfig),
+        axios.get(`${API_BASE_URL}/api/residents`, apiConfig),
+        axios.get(`${API_BASE_URL}/api/complaints`, apiConfig),
+        axios.get(`${API_BASE_URL}/api/finance`, apiConfig)
       ]);
 
       let calculatedTotal = 0;
@@ -89,11 +90,11 @@ export default function OverviewMetrics() {
         invoiceData = billing.value.data;
       } else {
         try {
-          const fallbackRes = await axios.get('https://bedbox-backend.onrender.com/api/invoices', apiConfig);
+          const fallbackRes = await axios.get(`${API_BASE_URL}/api/invoices`, apiConfig);
           if (Array.isArray(fallbackRes.data)) invoiceData = fallbackRes.data;
         } catch(e) {
           try {
-            const alternativeRes = await axios.get('https://bedbox-backend.onrender.com/api/invoice', apiConfig);
+            const alternativeRes = await axios.get(`${API_BASE_URL}/api/invoice`, apiConfig);
             if (Array.isArray(alternativeRes.data)) invoiceData = alternativeRes.data;
           } catch(err) {}
         }
@@ -139,7 +140,7 @@ export default function OverviewMetrics() {
       const token = localStorage.getItem('bedbox_token');
       const apiConfig = { headers: { Authorization: `Bearer ${token}` } };
       
-      const response = await axios.post('https://bedbox-backend.onrender.com/api/residents/process-approval', {
+      const response = await axios.post(`${API_BASE_URL}/api/residents/process-approval`, {
         requestId,
         action
       }, apiConfig);

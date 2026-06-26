@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Users, UserPlus, LogOut, Phone, ShieldCheck, History, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
+import { API_BASE_URL } from '../utils/apiConfig';
 
 export default function ResidentDirectory() {
   const [residents, setResidents] = useState([]);
@@ -27,7 +28,7 @@ export default function ResidentDirectory() {
     try {
       setLoading(true);
       const token = localStorage.getItem('bedbox_token');
-      const response = await axios.get('https://bedbox-backend.onrender.com/api/residents', {
+      const response = await axios.get(`${API_BASE_URL}/api/residents`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setResidents(response.data);
@@ -58,7 +59,7 @@ export default function ResidentDirectory() {
       setActionLoading(true);
       const token = localStorage.getItem('bedbox_token');
       
-      await axios.post('https://bedbox-backend.onrender.com/api/residents/register', {
+      await axios.post(`${API_BASE_URL}/api/residents/register`, {
         fullName: fullName.trim(),
         username: sanitizedUsername, // Send clean string configuration
         password,
@@ -72,7 +73,7 @@ export default function ResidentDirectory() {
       setFullName(''); setUsername(''); setPassword(''); setRoomNumber(''); setBedNumber(''); setPhoneNumber(''); setEmergencyContact('');
       fetchDirectoryLogs();
     } catch (err) {
-      alert(err.response?.data?.message || 'Check-in entry error.');
+      alert(err.response?.data?.message || err.message || 'Check-in entry error.');
     } finally {
       setActionLoading(false);
     }
@@ -88,7 +89,7 @@ export default function ResidentDirectory() {
     try {
       setActionLoading(true);
       const token = localStorage.getItem('bedbox_token');
-      const response = await axios.post('https://bedbox-backend.onrender.com/api/residents/checkout', {
+      const response = await axios.post(`${API_BASE_URL}/api/residents/checkout`, {
         username: outUsername.trim().toLowerCase().replace('@', ''),
         phoneNumber: outPhone.trim(),
         checkOutDate: outDate

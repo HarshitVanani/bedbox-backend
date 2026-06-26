@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Coffee, Utensils, Moon, Edit2, Save, X, RefreshCw, ChefHat, Sparkles } from 'lucide-react';
 // 🎯 CRITICAL SYSTEM LINK: Import our preference-aware alert engine
 import { triggerAppNotification } from '../utils/notificationSystem';
+import { API_BASE_URL } from '../utils/apiConfig';
 
 export default function MessMenu() {
   const [weeklyMenu, setWeeklyMenu] = useState([]);
@@ -26,7 +27,7 @@ export default function MessMenu() {
       setLoading(true);
       const token = localStorage.getItem('bedbox_token');
       // 🎯 UPDATED: Target production cloud route instead of localhost
-      const response = await axios.get('https://bedbox-backend.onrender.com/api/mess', {
+      const response = await axios.get(`${API_BASE_URL}/api/mess`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -64,7 +65,7 @@ export default function MessMenu() {
       // Loop and initialize default rows over backend endpoints sequentially
       for (const day of days) {
         // 🎯 UPDATED: Target production cloud route instead of localhost
-        await axios.post('https://bedbox-backend.onrender.com/api/mess/init-day-template-xyz', 
+        await axios.post(`${API_BASE_URL}/api/mess/init-day-template-xyz`, 
           { day, breakfast: 'Not Configured', lunch: 'Not Configured', dinner: 'Not Configured' },
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -84,7 +85,7 @@ export default function MessMenu() {
       setSaveLoading(true);
       const token = localStorage.getItem('bedbox_token');
       // 🎯 UPDATED: Target production cloud route instead of localhost
-      await axios.put('https://bedbox-backend.onrender.com/api/mess/update', {
+      await axios.put(`${API_BASE_URL}/api/mess/update`, {
         day,
         mealType,
         updatedDishes: editText

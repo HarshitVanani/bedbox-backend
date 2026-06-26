@@ -1,6 +1,7 @@
 // frontend/src/components/RoomsGrid.jsx
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../utils/apiConfig';
 import { PlusCircle, Bed, Layers, CheckCircle2, User, Building, Settings2, Check, X } from 'lucide-react';
 
 export default function RoomsGrid() {
@@ -26,7 +27,7 @@ export default function RoomsGrid() {
       setLoading(true);
       const token = localStorage.getItem('bedbox_token');
       // 🎯 UPDATED: Changed from localhost to live cloud Render URL
-      const response = await axios.get('https://bedbox-backend.onrender.com/api/rooms', {
+      const response = await axios.get(`${API_BASE_URL}/api/rooms`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setRooms(response.data);
@@ -60,7 +61,7 @@ export default function RoomsGrid() {
       }
 
       // 🎯 UPDATED: Changed from localhost to live cloud Render URL
-      await axios.post('https://bedbox-backend.onrender.com/api/rooms', 
+      await axios.post(`${API_BASE_URL}/api/rooms`, 
         { roomNumber: roomNumber.trim(), floorNumber, beds: bedsPayload },
         { headers: { Authorization: `Bearer ${token}` } }
       );

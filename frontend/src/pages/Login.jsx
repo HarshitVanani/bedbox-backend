@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Shield, Key, Phone, ArrowRight, User, AlertCircle, CheckCircle2, UserPlus } from 'lucide-react';
+import { API_BASE_URL } from '../utils/apiConfig';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ export default function Login() {
         setTimeout(() => { navigate('/dashboard'); }, 1200);
         return;
       }
-      const response = await axios.post('https://bedbox-backend.onrender.com/api/auth/login', {
+      const response = await axios.post(`${API_BASE_URL}/api/auth/login`, {
         username: username.trim().toLowerCase(), password
       });
       const { token, user } = response.data;
@@ -55,7 +56,7 @@ export default function Login() {
     resetMessages();
     setLoading(true);
     try {
-      const response = await axios.post('https://bedbox-backend.onrender.com/api/residents/request-access', signUpData);
+      const response = await axios.post(`${API_BASE_URL}/api/residents/request-access`, signUpData);
       setSuccessMessage(response.data.message);
       setSignUpData({ fullName: '', username: '', password: '', roomNumber: '', bedNumber: '', phoneNumber: '', address: '', emergencyContact: '', emergencyRelation: '' });
       setTimeout(() => { setViewMode('login'); resetMessages(); }, 3500);

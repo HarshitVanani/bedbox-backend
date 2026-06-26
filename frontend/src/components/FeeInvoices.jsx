@@ -1,6 +1,7 @@
 // frontend/src/components/FeeInvoices.jsx
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../utils/apiConfig';
 import { CreditCard, DollarSign, Receipt, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 // 🎯 CRITICAL SYSTEM LINK: Import our preference-aware live alert engine
 import { triggerAppNotification } from '../utils/notificationSystem';
@@ -27,7 +28,7 @@ export default function FeeInvoices() {
       setLoading(true);
       const token = localStorage.getItem('bedbox_token');
       // 🎯 UPDATED: Target production cloud route instead of localhost
-      const response = await axios.get('https://bedbox-backend.onrender.com/api/invoices', {
+      const response = await axios.get(`${API_BASE_URL}/api/invoices`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setInvoices(response.data);
@@ -55,7 +56,7 @@ export default function FeeInvoices() {
       setSubmitLoading(true);
       const token = localStorage.getItem('bedbox_token');
       // 🎯 UPDATED: Target production cloud route instead of localhost
-      await axios.post('https://bedbox-backend.onrender.com/api/invoices/generate', 
+      await axios.post(`${API_BASE_URL}/api/invoices/generate`, 
         { username, amount, billType, dueDate },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -92,7 +93,7 @@ export default function FeeInvoices() {
       const targetBill = invoices.find(inv => inv._id === invoiceId);
       
       // 🎯 UPDATED: Target production cloud route instead of localhost
-      await axios.put('https://bedbox-backend.onrender.com/api/invoices/settle', 
+      await axios.put(`${API_BASE_URL}/api/invoices/settle`, 
         { invoiceId },
         { headers: { Authorization: `Bearer ${token}` } }
       );

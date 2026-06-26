@@ -1,6 +1,7 @@
 // frontend/src/components/ComplaintBox.jsx
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../utils/apiConfig';
 import { ClipboardList, AlertCircle, CheckCircle, Clock, Send, RefreshCw } from 'lucide-react';
 // 🎯 CRITICAL SYSTEM LINK: Import our preference-aware alert engine
 import { triggerAppNotification } from '../utils/notificationSystem';
@@ -26,7 +27,7 @@ export default function ComplaintBox() {
       setLoading(true);
       const token = localStorage.getItem('bedbox_token');
       // 🎯 UPDATED: Target production cloud route
-      const response = await axios.get('https://bedbox-backend.onrender.com/api/complaints', {
+      const response = await axios.get(`${API_BASE_URL}/api/complaints`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setComplaints(response.data);
@@ -54,7 +55,7 @@ export default function ComplaintBox() {
       setSubmitLoading(true);
       const token = localStorage.getItem('bedbox_token');
       // 🎯 UPDATED: Target production cloud route
-      await axios.post('https://bedbox-backend.onrender.com/api/complaints', 
+      await axios.post(`${API_BASE_URL}/api/complaints`, 
         { title, roomNumber, description },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -88,7 +89,7 @@ export default function ComplaintBox() {
       const targetTicket = complaints.find(c => c._id === complaintId);
       
       // 🎯 UPDATED: Target production cloud route
-      await axios.put('https://bedbox-backend.onrender.com/api/complaints/resolve', 
+      await axios.put(`${API_BASE_URL}/api/complaints/resolve`, 
         { complaintId, nextStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       );

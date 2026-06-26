@@ -1,6 +1,7 @@
 // frontend/src/components/SettingsPanel.jsx
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../utils/apiConfig';
 import { 
   ShieldCheck, KeyRound, Lock, RefreshCw, 
   Sun, Moon, Bell, BellOff, Palette 
@@ -59,7 +60,7 @@ export default function SettingsPanel() {
     try {
       setPassLoading(true);
       const token = localStorage.getItem('bedbox_token');
-      const response = await axios.put('https://bedbox-backend.onrender.com/api/auth/update-password', 
+      const response = await axios.put(`${API_BASE_URL}/api/auth/update-password`, 
         { oldPassword, newPassword },
         { headers: { Authorization: `Bearer ${token}` } }
       );

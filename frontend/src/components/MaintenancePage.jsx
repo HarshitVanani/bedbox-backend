@@ -1,6 +1,7 @@
 // frontend/src/components/MaintenancePage.jsx
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../utils/apiConfig';
 import { Wrench, Trash2, AlertTriangle, PlusCircle, Clock } from 'lucide-react';
 
 export default function MaintenancePage() {
@@ -21,7 +22,7 @@ export default function MaintenancePage() {
     try {
       setLoading(true);
       const token = localStorage.getItem('bedbox_token');
-      const response = await axios.get('https://bedbox-backend.onrender.com/api/maintenance-notices', {
+      const response = await axios.get(`${API_BASE_URL}/api/maintenance-notices`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setNotices(response.data);
@@ -46,7 +47,7 @@ export default function MaintenancePage() {
     try {
       setSubmitLoading(true);
       const token = localStorage.getItem('bedbox_token');
-      await axios.post('https://bedbox-backend.onrender.com/api/maintenance-notices/create', 
+      await axios.post(`${API_BASE_URL}/api/maintenance-notices/create`, 
         { title, description, areaOrLocation },
         { headers: { Authorization: `Bearer ${token}` } }
       );
