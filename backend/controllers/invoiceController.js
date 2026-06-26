@@ -8,9 +8,9 @@ const { sendSMSNotification } = require('../smsService'); // ◄ Strict Lowercas
 exports.createInvoice = async (req, res) => {
     try {
         const { username, amount, billType, dueDate } = req.body;
-
+        const cleanSearchUsername = username.trim().toLowerCase().replace('@', '');
         // Find the resident by username to grab their actual profile parameters safely
-        const resident = await Resident.findOne({ username });
+        const resident = await Resident.findOne({ username: cleanSearchUsername });
         if (!resident) {
             return res.status(404).json({ message: `No active resident profile found matching username: ${username}` });
         }
