@@ -4,7 +4,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-  "start": "node seedRooms.js && node server.js",
+  "start": "node seedRooms.js && node server.js && node seedMenu.js",
   "dev": "nodemon server.js"
 },
   "keywords": [],
