@@ -1,18 +1,25 @@
 // backend/controllers/invoiceController.js
 const Invoice = require('../models/Invoice');
 const Resident = require('../models/Resident');
-const User = require('../models/User'); // ◄ Import User Model
-const { sendSMSNotification } = require('../smsService'); // ◄ Strict Lowercase Import Path
+const User = require('../models/User'); 
+const { sendSMSNotification } = require('../smsService'); 
 
 // 1. Generate a brand new invoice bill (Admin Only)
 exports.createInvoice = async (req, res) => {
     try {
         const { username, amount, billType, dueDate } = req.body;
-        const cleanSearchUsername = username.trim().toLowerCase().replace('@', '');
-        // Find the resident by username to grab their actual profile parameters safely
-        const resident = await Resident.findOne({ username: cleanSearchUsername });
+
+        if (!username || !amount || !billType || !dueDate) {
+            return res.status(400).json({ message: 'Missing required billing parameters.' });
+        }
+
+        // 🎯 FIXED: Universal lowercase string normalization matching registration controller schemas
+        const cleanUsername = username.trim().toLowerCase().replace('@', '');
+
+        // Find the resident by clean normalized username parameters safely
+        const resident = await Resident.findOne({ username: cleanUsername });
         if (!resident) {
-            return res.status(404).json({ message: `No active resident profile found matching username: ${username}` });
+            return res.status(404).json({ message: `No active resident profile found matching username: @${cleanUsername}` });
         }
 
         const newInvoice = await Invoice.create({
@@ -24,7 +31,7 @@ exports.createInvoice = async (req, res) => {
             dueDate: new Date(dueDate)
         });
 
-        // 🎯 TARGETED FEE NOTIFICATION TRIGGER
+        // TARGETED FEE NOTIFICATION TRIGGER
         const targetStudent = await User.findById(resident.userId);
         if (targetStudent) {
             const formattedDate = new Date(dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -38,7 +45,7 @@ exports.createInvoice = async (req, res) => {
     }
 };
 
-// 2. Pull invoices polymorphically (Admin sees all, Student sees their own bills)
+// 2. Pull Invoices polymorphically
 exports.getInvoices = async (req, res) => {
     try {
         let invoices;
@@ -53,7 +60,7 @@ exports.getInvoices = async (req, res) => {
     }
 };
 
-// 3. Update billing status to Paid (Admin Only)
+// 3. Update billing status to Paid
 exports.markAsPaid = async (req, res) => {
     try {
         const { invoiceId } = req.body;

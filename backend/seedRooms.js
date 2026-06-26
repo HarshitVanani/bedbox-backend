@@ -2,55 +2,74 @@
 const mongoose = require('mongoose');
 const Room = require('./models/Room');
 const dotenv = require('dotenv');
+const dns = require('dns');
+
+// 🎯 FORCE NODE TO BYPASS YOUR LOCAL ISP'S DNS BLOCKS ONLY FOR THIS SCRIPT
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 dotenv.config();
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/bedbox_hostel';
 
-const sampleRooms = [
-    {
-        roomNumber: "101",
-        floorNumber: 1,
-        roomType: "AC Sharing",
-        beds: [
-            { bedNumber: 1, status: "Available" },
-            { bedNumber: 2, status: "Available" },
-            { bedNumber: 3, status: "Maintenance" },
-            { bedNumber: 4, status: "Available" }
-        ]
-    },
-    {
-        roomNumber: "102",
-        floorNumber: 1,
-        roomType: "Non-AC Sharing",
-        beds: [
-            { bedNumber: 1, status: "Available" },
-            { bedNumber: 2, status: "Available" },
-            { bedNumber: 3, status: "Available" },
-            { bedNumber: 4, status: "Available" }
-        ]
-    },
-    {
-        roomNumber: "201",
-        floorNumber: 2,
-        roomType: "AC Sharing",
-        beds: [
-            { bedNumber: 1, status: "Available" },
-            { bedNumber: 2, status: "Available" },
-            { bedNumber: 3, status: "Available" },
-            { bedNumber: 4, status: "Available" }
-        ]
-    }
-];
+// Pulls your real working cluster link directly from your .env file
+const MONGO_URI = process.env.MONGO_URI;
 
-const seedRoomsDB = async () => {
+const seedRooms = async () => {
     try {
+        console.log('🔄 Connecting to your fresh cluster to seed rooms...');
         await mongoose.connect(MONGO_URI);
-        // Clear any old room configurations to prevent crashes
-        await Room.deleteMany();
         
-        // Insert our sample room map rows
-        await Room.insertMany(sampleRooms);
+        // Clear out any half-created room collections if any exist
+        await Room.deleteMany({});
+
+        const structuralRooms = [
+            {
+                roomNumber: "101",
+                roomType: "Non-AC",
+                capacity: 4,
+                beds: [
+                    { bedNumber: 1, status: "Available", occupiedBy: null },
+                    { bedNumber: 2, status: "Available", occupiedBy: null },
+                    { bedNumber: 3, status: "Available", occupiedBy: null },
+                    { bedNumber: 4, status: "Available", occupiedBy: null }
+                ]
+            },
+            {
+                roomNumber: "102",
+                roomType: "AC",
+                capacity: 4,
+                beds: [
+                    { bedNumber: 1, status: "Available", occupiedBy: null },
+                    { bedNumber: 2, status: "Available", occupiedBy: null },
+                    { bedNumber: 3, status: "Available", occupiedBy: null },
+                    { bedNumber: 4, status: "Available", occupiedBy: null }
+                ]
+            },
+            {
+                roomNumber: "103",
+                roomType: "AC",
+                capacity: 4,
+                beds: [
+                    { bedNumber: 1, status: "Available", occupiedBy: null },
+                    { bedNumber: 2, status: "Available", occupiedBy: null },
+                    { bedNumber: 3, status: "Available", occupiedBy: null },
+                    { bedNumber: 4, status: "Available", occupiedBy: null }
+                ]
+            },
+            {
+                roomNumber: "201",
+                roomType: "Non-AC",
+                capacity: 2,
+                beds: [
+                    { bedNumber: 1, status: "Available", occupiedBy: null },
+                    { bedNumber: 2, status: "Available", occupiedBy: null }
+                ]
+            }
+        ];
+
+        await Room.insertMany(structuralRooms);
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('🎉 HOSTEL VISUAL ROOM GRID SEEDED SUCCESSFULLY WITH SAMPLE BEDS!');
+        console.log('✅ Rooms 101, 102, 103, and 201 are fully live and empty.');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         process.exit(0);
     } catch (error) {
         console.error('❌ Room seeding failed:', error.message);
@@ -58,4 +77,4 @@ const seedRoomsDB = async () => {
     }
 };
 
-seedRoomsDB();
+seedRooms();

@@ -3,7 +3,6 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const bcrypt = require('bcryptjs'); 
 const User = require('./models/User'); 
 
 // Routes imports
@@ -42,33 +41,30 @@ mongoose.connect(MONGO_URI)
         console.log('⚡ Successfully connected to MongoDB Database.');
         
         try {
-            console.log('🚀 Running production database account check & password sync...');
-            
-            const salt = await bcrypt.genSalt(10);
-            const hashedPassword = await bcrypt.hash('password123', salt);
+            console.log('🚀 Running production database account check & validation sync...');
 
-            // 🎯 FORCED RESIDENT PASSWORD SYNC
-            await User.findOneAndUpdate(
-                { username: 'harshit3' }, 
-                { 
-                    password: hashedPassword, // Forces a clean, correctly-hashed password
-                    role: 'student'
-                },
-                { upsert: false } // Only updates if the user already exists
-            );
-
-            // Existing admin sync code...
-            const adminPassword = await bcrypt.hash('adminpassword123', salt);
-            await User.findOneAndUpdate(
-                { username: 'admin' }, 
-                { 
+            // 🎯 FIXED: Seeding accounts with raw strings so UserSchema pre-save encryption hook handles hashing safely
+            const adminUser = await User.findOne({ username: 'admin' });
+            if (!adminUser) {
+                await User.create({
                     username: 'admin',
-                    password: adminPassword,
+                    password: 'adminpassword123',
                     role: 'admin',
-                    receiveSMSAlerts: true 
-                },
-                { upsert: true, new: true }
-            );
+                    receiveSMSAlerts: true
+                });
+                console.log('👑 Root admin account successfully seeded.');
+            }
+
+            const residentUser = await User.findOne({ username: 'harshit3' });
+            if (!residentUser) {
+                await User.create({
+                    username: 'harshit3',
+                    password: 'password123',
+                    role: 'student',
+                    phoneNumber: '+919999999999'
+                });
+                console.log('👤 Fallback testing resident seeded cleanly.');
+            }
 
             console.log('✅ Account credentials successfully synchronized into cloud database!');
         } catch (seedError) {
