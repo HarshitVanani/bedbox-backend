@@ -188,8 +188,8 @@ export default function OverviewMetrics() {
       </div>
 
       {/* METRIC CARD BAR */}
-      <div className={`grid grid-cols-1 md:grid-cols-2 ${isAdmin ? 'xl:grid-cols-3' : 'xl:grid-cols-4'} gap-6`}>
-        {!isAdmin && (
+      <div className={`grid grid-cols-1 md:grid-cols-2 ${isAdmin ? 'xl:grid-cols-4' : 'xl:grid-cols-3'} gap-6`}>
+        {isAdmin && (
           <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm flex items-center justify-between">
             <div className="space-y-0.5">
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Bed Occupancy Ratio</p>
@@ -220,9 +220,11 @@ export default function OverviewMetrics() {
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Outstanding Dues</p>
             <h4 className="text-xl font-black text-red-600">₹{metrics.unpaidFees}</h4>
           </div>
-          <div className="p-2.5 bg-red-50 text-red-600 rounded-xl">
-            {isAdmin ? <IndianRupee className="w-4 h-4" /> : <DollarSign className="w-4 h-4" />}
-          </div>
+          {isAdmin && (
+            <div className="p-2.5 bg-red-50 text-red-600 rounded-xl">
+              <IndianRupee className="w-4 h-4" />
+            </div>
+          )}
         </div>
       </div>
 
@@ -277,7 +279,7 @@ export default function OverviewMetrics() {
       </div>
 
       {/* LOWER DOUBLE COLUMN REGISTER GRIDS */}
-      {isAdmin ? (
+      {!isAdmin ? (
         <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm space-y-3">
           <h5 className="text-xs font-bold text-slate-800">System Operations Audit Feed</h5>
           <div className="space-y-3">
