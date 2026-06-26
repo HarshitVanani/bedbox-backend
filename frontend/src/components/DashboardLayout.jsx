@@ -12,7 +12,7 @@ export default function DashboardLayout({ children, activeTab, setActiveTab }) {
 
   // Retrieve user data stored during login
   const userData = JSON.parse(localStorage.getItem('bedbox_user') || '{}');
-  const role = userData.role || 'student'; // Fallback safely to student profile
+  const role = (userData.role === 'resident' ? 'student' : userData.role) || 'student'; // Fallback safely to student profile
 
   // Master sidebar link array matrix configuration 
   const menuItems = [

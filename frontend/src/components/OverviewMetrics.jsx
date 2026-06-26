@@ -2,11 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../utils/apiConfig';
 import { 
-  Users, Bed, ClipboardList, DollarSign, 
+  Users, Bed, ClipboardList, DollarSign, IndianRupee, 
   RefreshCw, Activity, Clock, UserCheck, UserX
 } from 'lucide-react';
 
 export default function OverviewMetrics() {
+  const userData = JSON.parse(localStorage.getItem('bedbox_user') || '{}');
+  const isAdmin = userData.role === 'admin';
+
   const [metrics, setMetrics] = useState({ occupiedBeds: 0, totalBeds: 0, activeStudents: 0, pendingComplaints: 0, unpaidFees: 0 });
   const [gateLogs, setGateLogs] = useState([]);
   const [activities, setActivities] = useState([]);
@@ -185,14 +188,16 @@ export default function OverviewMetrics() {
       </div>
 
       {/* METRIC CARD BAR */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm flex items-center justify-between">
-          <div className="space-y-0.5">
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Bed Occupancy Ratio</p>
-            <h4 className="text-xl font-black text-slate-800">{metrics.occupiedBeds} <span className="text-xs font-normal text-slate-400">/ {metrics.totalBeds} Beds</span></h4>
+      <div className={`grid grid-cols-1 md:grid-cols-2 ${isAdmin ? 'xl:grid-cols-3' : 'xl:grid-cols-4'} gap-6`}>
+        {!isAdmin && (
+          <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm flex items-center justify-between">
+            <div className="space-y-0.5">
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Bed Occupancy Ratio</p>
+              <h4 className="text-xl font-black text-slate-800">{metrics.occupiedBeds} <span className="text-xs font-normal text-slate-400">/ {metrics.totalBeds} Beds</span></h4>
+            </div>
+            <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl"><Bed className="w-4 h-4" /></div>
           </div>
-          <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl"><Bed className="w-4 h-4" /></div>
-        </div>
+        )}
 
         <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm flex items-center justify-between">
           <div className="space-y-0.5">
@@ -215,7 +220,9 @@ export default function OverviewMetrics() {
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Outstanding Dues</p>
             <h4 className="text-xl font-black text-red-600">₹{metrics.unpaidFees}</h4>
           </div>
-          <div className="p-2.5 bg-red-50 text-red-600 rounded-xl"><DollarSign className="w-4 h-4" /></div>
+          <div className="p-2.5 bg-red-50 text-red-600 rounded-xl">
+            {isAdmin ? <IndianRupee className="w-4 h-4" /> : <DollarSign className="w-4 h-4" />}
+          </div>
         </div>
       </div>
 
@@ -270,28 +277,7 @@ export default function OverviewMetrics() {
       </div>
 
       {/* LOWER DOUBLE COLUMN REGISTER GRIDS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm lg:col-span-2 space-y-3">
-          <h5 className="text-xs font-bold text-slate-800">Live Gate Security Register Check</h5>
-          <div className="divide-y divide-slate-100">
-            {gateLogs.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-4">No resident footprint records active.</p>
-            ) : (
-              gateLogs.map(log => (
-                <div key={log._id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
-                  <div>
-                    <p className="text-xs font-bold text-slate-700">{log.name}</p>
-                    <p className="text-[10px] text-slate-400 font-semibold">Assigned Room: {log.room}</p>
-                  </div>
-                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${log.status === 'IN' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
-                    BUILDING {log.status}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
+      {isAdmin ? (
         <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm space-y-3">
           <h5 className="text-xs font-bold text-slate-800">System Operations Audit Feed</h5>
           <div className="space-y-3">
@@ -306,7 +292,45 @@ export default function OverviewMetrics() {
             ))}
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm lg:col-span-2 space-y-3">
+            <h5 className="text-xs font-bold text-slate-800">Live Gate Security Register Check</h5>
+            <div className="divide-y divide-slate-100">
+              {gateLogs.length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-4">No resident footprint records active.</p>
+              ) : (
+                gateLogs.map(log => (
+                  <div key={log._id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                    <div>
+                      <p className="text-xs font-bold text-slate-700">{log.name}</p>
+                      <p className="text-[10px] text-slate-400 font-semibold">Assigned Room: {log.room}</p>
+                    </div>
+                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${log.status === 'IN' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                      BUILDING {log.status}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm space-y-3">
+            <h5 className="text-xs font-bold text-slate-800">System Operations Audit Feed</h5>
+            <div className="space-y-3">
+              {activities.map(act => (
+                <div key={act.id} className="flex gap-2 text-xs text-slate-600">
+                  <Activity className="w-3.5 h-3.5 text-slate-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium leading-tight">{act.text}</p>
+                    <span className="text-[9px] text-slate-400 font-bold uppercase">{act.time}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* SYSTEM PERSISTENCE STATUS BADGE */}
       <div className="bg-slate-900 rounded-xl p-4 text-white flex items-center justify-between text-xs">
