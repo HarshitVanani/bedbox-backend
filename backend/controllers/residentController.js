@@ -1,17 +1,14 @@
-// backend/controllers/residentController.js
 const Resident = require('../models/Resident');
 const User = require('../models/User');
 const Room = require('../models/Room');
 const Invoice = require('../models/Invoice');
-const bcrypt = require('bcryptjs');
-
+const PendingRequest = require('../models/PendingRequest');
 
 exports.addResident = async (req, res) => {
     try {
-        const { fullName, username, password, roomNumber, bedNumber, phoneNumber, emergencyContact } = req.body;
+        const { fullName, username, password, roomNumber, bedNumber, phoneNumber, address, emergencyContact, emergencyRelation } = req.body;
 
-        // 1. Crash Prevention: Guard against missing or undefined fields before trimming
-        if (!username || !password || !roomNumber || !bedNumber || !phoneNumber || !fullName) {
+        if (!username || !password || !roomNumber || !bedNumber || !phoneNumber || !fullName || !address || !emergencyContact || !emergencyRelation) {
             return res.status(400).json({ message: 'Missing required registration fields.' });
         }
 
@@ -24,41 +21,29 @@ exports.addResident = async (req, res) => {
             formattedPhone = `+91${formattedPhone}`;
         }
 
-        // Safe fallback for emergency contact so it never throws a .trim() error
-        const cleanEmergency = emergencyContact ? emergencyContact.trim() : "";
-
         const userExists = await User.findOne({ username: cleanUsername });
         if (userExists) {
             return res.status(400).json({ message: 'This username is already allocated to an active account.' });
         }
 
         const room = await Room.findOne({ roomNumber: cleanRoom });
-        if (!room) {
-            return res.status(400).json({ message: `Room ${cleanRoom} does not exist.` });
-        }
+        if (!room) return res.status(400).json({ message: `Room ${cleanRoom} does not exist.` });
 
         const bed = room.beds.find(b => b.bedNumber === targetBed);
-        if (!bed) {
-            return res.status(400).json({ message: `Bed slot ${targetBed} does not exist.` });
-        }
-        
-        if (bed.status !== 'Available') {
-            return res.status(400).json({ message: `Bed slot ${targetBed} is occupied.` });
-        }
+        if (!bed) return res.status(400).json({ message: `Bed slot ${targetBed} does not exist.` });
+        if (bed.status !== 'Available') return res.status(400).json({ message: `Bed slot ${targetBed} is occupied.` });
 
-        // 2. Wrap Document Creations in clear tracking blocks
         let newUserAccount;
         try {
             newUserAccount = await User.create({
                 username: cleanUsername,
                 password: password, 
                 role: 'student',
-                phoneNumber: formattedPhone,
-                receiveSMSAlerts: true 
+                phoneNumber: formattedPhone
             });
         } catch (userError) {
             console.error("--- USER COLLECTION DB SAVE CRASH ---", userError);
-            return res.status(500).json({ message: 'Failed creating auth account structure. Check schema constraints.', error: userError.message });
+            return res.status(500).json({ message: 'Failed creating auth account structure.', error: userError.message });
         }
 
         const newResident = await Resident.create({
@@ -68,7 +53,9 @@ exports.addResident = async (req, res) => {
             roomNumber: cleanRoom,
             bedNumber: targetBed,
             phoneNumber: formattedPhone,
-            emergencyContact: cleanEmergency,
+            address: address.trim(),
+            emergencyContact: emergencyContact.trim(),
+            emergencyRelation: emergencyRelation.trim(),
             status: 'Active',
             checkInDate: new Date()
         });
@@ -79,103 +66,120 @@ exports.addResident = async (req, res) => {
 
         res.status(201).json({ message: 'Resident checked in cleanly!', newResident });
     } catch (error) {
-        // Detailed error reporting back to the frontend for debugging temporary issues
         console.error("--- BACKEND REGISTRATION CRASH LOG ---", error);
-        res.status(500).json({ message: 'Internal server processing error', error: error.message, stack: error.stack });
+        res.status(500).json({ message: 'Internal server processing error', error: error.message });
     }
 };
+
 exports.getAllResidents = async (req, res) => {
     try {
         const residents = await Resident.find().sort({ createdAt: -1 });
         res.json(residents);
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to synchronize directory collections', error: error.message });
-    }
+    } catch (error) { res.status(500).json({ message: 'Failed to fetch directory', error: error.message }); }
 };
-
 
 exports.checkOutResident = async (req, res) => {
     try {
         const { username, phoneNumber, checkOutDate } = req.body;
-
         const cleanInputUsername = username.trim().toLowerCase().replace('@', '');
-        const cleanPhone = phoneNumber.trim();
+        let resident = await Resident.findOne({ username: cleanInputUsername, status: 'Active' });
 
-        let resident = await Resident.findOne({
-            username: cleanInputUsername,
-            status: 'Active'
-        });
-
-        if (!resident) {
-            resident = await Resident.findOne({
-                phoneNumber: cleanPhone,
-                status: 'Active'
-            });
-        }
-
-        if (!resident) {
-            return res.status(404).json({
-                message: `No active resident profile found matching username '${username}' and phone '${phoneNumber}'.`
-            });
-        }
+        if (!resident) resident = await Resident.findOne({ phoneNumber: phoneNumber.trim(), status: 'Active' });
+        if (!resident) return res.status(404).json({ message: 'No active resident profile found.' });
 
         const unpaidBills = await Invoice.findOne({ studentId: resident.userId, status: 'Unpaid' });
-        const cleanFinances = unpaidBills ? false : true;
-
         const room = await Room.findOne({ roomNumber: resident.roomNumber });
         if (room) {
             const bed = room.beds.find(b => b.bedNumber === resident.bedNumber);
-            if (bed) {
-                bed.status = 'Available';
-                bed.occupiedBy = null;
-                await room.save();
-            }
+            if (bed) { bed.status = 'Available'; bed.occupiedBy = null; await room.save(); }
         }
 
         resident.status = 'Checked Out';
         resident.checkOutDate = checkOutDate ? new Date(checkOutDate) : new Date();
-        resident.duesCleared = cleanFinances;
-        
+        resident.duesCleared = !unpaidBills;
         resident.roomNumber = resident.roomNumber + " (Archived)";
         await resident.save();
 
         res.json({ message: `Resident ${resident.fullName} released successfully.` });
-    } catch (error) {
-        res.status(500).json({ message: 'Critical failure running check-out gate operations', error: error.message });
-    }
+    } catch (error) { res.status(500).json({ message: 'Gate system failure', error: error.message }); }
 };
 
 exports.forceDeleteResident = async (req, res) => {
     try {
         const { id } = req.params;
-
-        // Find the resident profile document first
         const resident = await Resident.findById(id);
-        if (!resident) {
-            return res.status(404).json({ success: false, message: "Resident profile record not found." });
-        }
+        if (!resident) return res.status(404).json({ message: "Profile not found." });
 
-        // Release the assigned room bed resource back to 'Available' status
         const room = await Room.findOne({ roomNumber: resident.roomNumber });
         if (room) {
             const bed = room.beds.find(b => b.bedNumber === resident.bedNumber);
-            if (bed) {
-                bed.status = 'Available';
-                bed.occupiedBy = null;
-                await room.save();
-            }
+            if (bed) { bed.status = 'Available'; bed.occupiedBy = null; await room.save(); }
         }
-
-        // Wipe associated login user authentication credentials account
-        if (resident.userId) {
-            await User.findByIdAndDelete(resident.userId);
-        }
-
-        // Erase resident profile entry permanently
+        if (resident.userId) await User.findByIdAndDelete(resident.userId);
         await Resident.findByIdAndDelete(id);
+        res.status(200).json({ success: true, message: "Resident structure purged." });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+};
 
-        res.status(200).json({ success: true, message: "Resident data structures purged cleanly from cluster collections." });
-    } catch (error) {
-        res.status(500).json({ success: false, message: "Error executing force-purge pipeline operations.", error: error.message });
-    }
+// --- NEW APPROVAL PIPELINE OPERATIONS ---
+exports.requestAccess = async (req, res) => {
+    try {
+        const { fullName, username, password, roomNumber, bedNumber, phoneNumber, address, emergencyContact, emergencyRelation } = req.body;
+        if (!username || !password || !roomNumber || !bedNumber || !phoneNumber || !fullName || !address || !emergencyContact || !emergencyRelation) {
+            return res.status(400).json({ message: 'Please completely fill in all registration fields.' });
+        }
+        const cleanUsername = username.trim().toLowerCase().replace('@', '');
+        if (await User.findOne({ username: cleanUsername }) || await PendingRequest.findOne({ username: cleanUsername, status: 'Pending' })) {
+            return res.status(400).json({ message: 'Username is already active or pending approval.' });
+        }
+        const newRequest = await PendingRequest.create({
+            fullName: fullName.trim(), username: cleanUsername, password, roomNumber, bedNumber: parseInt(bedNumber),
+            phoneNumber, address: address.trim(), emergencyContact: emergencyContact.trim(), emergencyRelation: emergencyRelation.trim()
+        });
+        res.status(201).json({ message: 'Access request submitted to Admin successfully!', newRequest });
+    } catch (error) { res.status(500).json({ message: 'Request pipeline failed', error: error.message }); }
+};
+
+exports.getPendingRequests = async (req, res) => {
+    try {
+        const requests = await PendingRequest.find({ status: 'Pending' }).sort({ createdAt: -1 });
+        res.json(requests);
+    } catch (error) { res.status(500).json({ error: error.message }); }
+};
+
+exports.handleAdminApproval = async (req, res) => {
+    try {
+        const { requestId, action } = req.body;
+        const requestDoc = await PendingRequest.findById(requestId);
+        if (!requestDoc || requestDoc.status !== 'Pending') return res.status(404).json({ message: 'Request active profile not found.' });
+
+        if (action === 'Rejected') {
+            requestDoc.status = 'Rejected';
+            await requestDoc.save();
+            return res.json({ message: 'Registration request successfully rejected.' });
+        }
+
+        const room = await Room.findOne({ roomNumber: requestDoc.roomNumber.trim() });
+        if (!room) return res.status(400).json({ message: `Room ${requestDoc.roomNumber} does not exist.` });
+        const bed = room.beds.find(b => b.bedNumber === requestDoc.bedNumber);
+        if (!bed || bed.status !== 'Available') return res.status(400).json({ message: 'Bed slot is no longer available.' });
+
+        const newUserAccount = await User.create({
+            username: requestDoc.username, password: requestDoc.password, role: 'student', phoneNumber: requestDoc.phoneNumber
+        });
+
+        await Resident.create({
+            userId: newUserAccount._id, fullName: requestDoc.fullName, username: requestDoc.username,
+            roomNumber: requestDoc.roomNumber, bedNumber: requestDoc.bedNumber, phoneNumber: requestDoc.phoneNumber,
+            address: requestDoc.address, emergencyContact: requestDoc.emergencyContact, emergencyRelation: requestDoc.emergencyRelation
+        });
+
+        bed.status = 'Occupied';
+        bed.occupiedBy = newUserAccount._id;
+        await room.save();
+
+        requestDoc.status = 'Approved';
+        await requestDoc.save();
+        res.status(200).json({ message: 'Resident approved and auto-registered cleanly!' });
+    } catch (error) { res.status(500).json({ error: error.message }); }
 };

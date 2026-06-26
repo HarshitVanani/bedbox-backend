@@ -1,16 +1,15 @@
-// backend/routes/residentRoutes.js
 const express = require('express');
 const router = express.Router();
-const { protect, authorize } = require('../middleware/authMiddleware');
+const residentController = require('../controllers/residentController');
 
-const { 
-  addResident, 
-  getAllResidents, 
-  checkOutResident 
-} = require('../controllers/residentController');
+router.post('/', residentController.addResident);
+router.get('/', residentController.getAllResidents);
+router.post('/checkout', residentController.checkOutResident);
+router.delete('/:id', residentController.forceDeleteResident);
 
-router.post('/register', protect, authorize('admin'), addResident);
-router.get('/', protect, authorize('admin'), getAllResidents);
-router.post('/checkout', protect, authorize('admin'), checkOutResident);
+// Approval Routes
+router.post('/request-access', residentController.requestAccess);
+router.get('/pending-requests', residentController.getPendingRequests);
+router.post('/process-approval', residentController.handleAdminApproval);
 
 module.exports = router;
