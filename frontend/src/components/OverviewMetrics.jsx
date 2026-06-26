@@ -218,13 +218,13 @@ export default function OverviewMetrics() {
         <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm flex items-center justify-between">
           <div className="space-y-0.5">
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Outstanding Dues</p>
-            <h4 className="text-xl font-black text-red-600">₹{metrics.unpaidFees}</h4>
+            <h4 className="text-xl font-black text-red-600">
+              {isAdmin ? `$${metrics.unpaidFees}` : `₹${metrics.unpaidFees}`}
+            </h4>
           </div>
-          {isAdmin && (
-            <div className="p-2.5 bg-red-50 text-red-600 rounded-xl">
-              <IndianRupee className="w-4 h-4" />
-            </div>
-          )}
+          <div className="p-2.5 bg-red-50 text-red-600 rounded-xl">
+            {isAdmin ? <DollarSign className="w-4 h-4" /> : <IndianRupee className="w-4 h-4" />}
+          </div>
         </div>
       </div>
 
