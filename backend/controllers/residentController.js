@@ -8,13 +8,15 @@ exports.addResident = async (req, res) => {
     try {
         const { fullName, username, password, roomNumber, bedNumber, phoneNumber, address, emergencyContact, emergencyRelation } = req.body;
 
-        if (!username || !password || !roomNumber || !bedNumber || !phoneNumber || !fullName || !address || !emergencyContact || !emergencyRelation) {
+        if (!username || !password || !roomNumber || !bedNumber || !phoneNumber || !fullName || !emergencyContact) {
             return res.status(400).json({ message: 'Missing required registration fields.' });
         }
 
         const cleanUsername = username.trim().toLowerCase().replace('@', '');
         const cleanRoom = roomNumber.trim();
         const targetBed = parseInt(bedNumber);
+        const cleanAddress = (address || 'Not Provided').trim();
+        const cleanEmergencyRelation = (emergencyRelation || 'Not Provided').trim();
 
         let formattedPhone = phoneNumber.trim();
         if (formattedPhone.length === 10 && !formattedPhone.startsWith('+')) {
@@ -53,9 +55,9 @@ exports.addResident = async (req, res) => {
             roomNumber: cleanRoom,
             bedNumber: targetBed,
             phoneNumber: formattedPhone,
-            address: address.trim(),
+            address: cleanAddress,
             emergencyContact: emergencyContact.trim(),
-            emergencyRelation: emergencyRelation.trim(),
+            emergencyRelation: cleanEmergencyRelation,
             status: 'Active',
             checkInDate: new Date()
         });

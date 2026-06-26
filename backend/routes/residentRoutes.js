@@ -3,6 +3,7 @@ const router = express.Router();
 const residentController = require('../controllers/residentController');
 
 router.post('/', residentController.addResident);
+router.post('/register', residentController.addResident);
 router.get('/', residentController.getAllResidents);
 router.post('/checkout', residentController.checkOutResident);
 router.delete('/:id', residentController.forceDeleteResident);

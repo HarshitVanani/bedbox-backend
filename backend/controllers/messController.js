@@ -55,14 +55,22 @@ const updateMeal = async (req, res) => {
         }
 
         // 🎯 REAL-TIME MESS NOTIFICATION DISPATCH ENGINE
-        // Fetch all active students in the hostel system
-        const activeStudents = await User.find({ role: 'student' });
-        
-        // Loop through each student asynchronously to filter mute preferences and send SMS
-        activeStudents.forEach(async (student) => {
-            const smsPayload = `The Mess Menu for ${day} (${mealType}) has been updated. New Menu: ${updatedDishes}. Check your dashboard to view the full tracking layout.`;
-            await sendSMSNotification(student, smsPayload);
-        });
+        try {
+            // Fetch all active students in the hostel system
+            const activeStudents = await User.find({ role: 'student' });
+            
+            // Loop through each student asynchronously to filter mute preferences and send SMS
+            activeStudents.forEach(async (student) => {
+                try {
+                    const smsPayload = `The Mess Menu for ${day} (${mealType}) has been updated. New Menu: ${updatedDishes}. Check your dashboard to view the full tracking layout.`;
+                    await sendSMSNotification(student, smsPayload);
+                } catch (smsErr) {
+                    console.error(`❌ Async SMS dispatch error for ${student?.username || 'unknown'}:`, smsErr.message);
+                }
+            });
+        } catch (smsOuterErr) {
+            console.error("❌ SMS Dispatch pipeline outer failure:", smsOuterErr.message);
+        }
 
         res.status(200).json({ message: "Dish updated successfully", updatedMenu });
     } catch (error) {
