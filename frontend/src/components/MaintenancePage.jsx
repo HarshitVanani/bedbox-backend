@@ -47,17 +47,26 @@ export default function MaintenancePage() {
     try {
       setSubmitLoading(true);
       const token = localStorage.getItem('bedbox_token');
-      await axios.post(`${API_BASE_URL}/api/maintenance-notices/create`, 
+      const response = await axios.post(`${API_BASE_URL}/api/maintenance-notices/create`, 
         { title, description, areaOrLocation },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
+      // Clean Reset on Explicit Frontend Success Verification
       setTitle('');
       setDescription('');
       setAreaOrLocation('');
-      fetchNotices(); // Reload the list instantly
+      fetchNotices(); 
     } catch (err) {
-      alert('Failed to publish maintenance notice.');
+      // 🎯 FIXED: Check if the response actually succeeded despite an internal error parsing the object body
+      if (err.response && (err.response.status === 200 || err.response.status === 201)) {
+        setTitle('');
+        setDescription('');
+        setAreaOrLocation('');
+        fetchNotices();
+      } else {
+        alert('Failed to publish maintenance notice.');
+      }
     } finally {
       setSubmitLoading(false);
     }
@@ -67,12 +76,17 @@ export default function MaintenancePage() {
     if (!window.confirm('Mark this task as completed and remove the notice?')) return;
     try {
       const token = localStorage.getItem('bedbox_token');
-      await axios.delete(`${API_BASE_URL}/api/maintenance-notices/${id}`, {
+      const response = await axios.delete(`${API_BASE_URL}/api/maintenance-notices/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      fetchNotices(); // Reload list instantly
+      fetchNotices(); 
     } catch (err) {
-      alert('Error clearing the notice update.');
+      // 🎯 FIXED: Check for a successful status fallback
+      if (err.response && (err.response.status === 200 || err.response.status === 204)) {
+        fetchNotices();
+      } else {
+        alert('Error clearing the notice update.');
+      }
     }
   };
 
@@ -96,12 +110,11 @@ export default function MaintenancePage() {
             <div className="space-y-3 text-xs">
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Issue / Title</label>
-                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Water Pipeline Repair" className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 text-slate-800 dark:text-slate-100" />
+                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Water Pipeline Repair" className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-990 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 text-slate-800 dark:text-slate-100" />
               </div>
 
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Impacted Area / Location</label>
-                {/* 🎯 FIXED: Changed areaOrLocation(e.target.value) to setAreaOrLocation(e.target.value) */}
                 <input type="text" value={areaOrLocation} onChange={(e) => setAreaOrLocation(e.target.value)} placeholder="e.g., Block B Washrooms" className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 text-slate-800 dark:text-slate-100" />
               </div>
 
@@ -117,7 +130,7 @@ export default function MaintenancePage() {
           </form>
         )}
 
-        {/* RIGHT COLUMN: Interactive Notice Board Feed (Visible to both Students and Admin) */}
+        {/* RIGHT COLUMN: Interactive Notice Board Feed */}
         <div className="flex-1 w-full space-y-4">
           <h4 className="font-bold text-xs text-slate-400 uppercase tracking-wider">Active Board Notices</h4>
 

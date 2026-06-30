@@ -54,27 +54,44 @@ export default function ComplaintBox() {
     try {
       setSubmitLoading(true);
       const token = localStorage.getItem('bedbox_token');
-      // 🎯 UPDATED: Target production cloud route
+      
+      // Send the data package down the pipeline
       await axios.post(`${API_BASE_URL}/api/complaints`, 
         { title, roomNumber, description },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      // 🎯 PASTE TARGET REACHED: Fire alert tracker when student submits a complaint
+      // 🎯 STANDARD SUCCESS PROCESSING
       triggerAppNotification(
         "New Maintenance Ticket Filed",
         `Issue regarding "${title}" has been successfully logged for Room ${roomNumber}.`
       );
-
       setSuccessMsg('Maintenance ticket logged successfully!');
       setTitle('');
       setRoomNumber('');
       setDescription('');
-      fetchComplaintsData(); // Instant data grid refresh
-      
+      fetchComplaintsData(); // Reload list view elements
       setTimeout(() => setSuccessMsg(''), 3000);
+
     } catch (err) {
-      alert('Failed to log problem entry ticket.');
+      // 🎯 FIXED: Check fallback network indicators to catch silent webview parsed commits
+      const serverStatus = err.response?.status || err.request?.status;
+      
+      if (serverStatus === 200 || serverStatus === 201) {
+        triggerAppNotification(
+          "New Maintenance Ticket Filed",
+          `Issue regarding "${title}" has been successfully logged for Room ${roomNumber}.`
+        );
+        setSuccessMsg('Maintenance ticket logged successfully!');
+        setTitle('');
+        setRoomNumber('');
+        setDescription('');
+        fetchComplaintsData(); // Hot-reload data logs to clear visual delays
+        setTimeout(() => setSuccessMsg(''), 3000);
+      } else {
+        // True connectivity breakdown path
+        alert('Failed to log problem entry ticket.');
+      }
     } finally {
       setSubmitLoading(false);
     }
@@ -105,7 +122,22 @@ export default function ComplaintBox() {
 
       fetchComplaintsData();
     } catch (err) {
-      alert('Error updating ticket timeline tracking status.');
+      // 🎯 FIXED: Catch block verification layer bypasses false mobile container parser errors
+      const serverStatus = err.response?.status || err.request?.status;
+
+      if (serverStatus === 200 || serverStatus === 201) {
+        const targetTicket = complaints.find(c => c._id === complaintId);
+        if (targetTicket) {
+          const actionLabel = nextStatus === 'In Progress' ? "Placed Under Investigation" : "Marked Fully Resolved";
+          triggerAppNotification(
+            `Ticket Status: ${nextStatus}`,
+            `The complaint regarding "${targetTicket.title}" for Room ${targetTicket.roomNumber} has been ${actionLabel}.`
+          );
+        }
+        fetchComplaintsData();
+      } else {
+        alert('Error updating ticket timeline tracking status.');
+      }
     }
   };
 

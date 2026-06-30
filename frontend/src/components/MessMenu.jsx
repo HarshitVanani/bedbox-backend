@@ -43,7 +43,6 @@ export default function MessMenu() {
       setError(''); 
     } catch (err) {
       console.warn("Database initialization state checked:", err.message);
-      // DEFENSIVE UPGRADE: Bypasses the network error lock if the database is just empty
       setWeeklyMenu([]);
       setError(''); 
     } finally {
@@ -71,9 +70,13 @@ export default function MessMenu() {
         );
       }
       
-      await fetchMenuData(); // Hot-reload visual arrays instantly
+      await fetchMenuData(); 
     } catch (err) {
-      alert('Failed to automatically bootstrap menu data logs. Check your backend server state.');
+      if (err.response && (err.response.status === 200 || err.response.status === 201)) {
+        fetchMenuData();
+      } else {
+        alert('Failed to automatically bootstrap menu data logs. Check your backend server state.');
+      }
     } finally {
       setInitLoading(false);
     }
@@ -103,7 +106,18 @@ export default function MessMenu() {
       setEditingMeal(null);
       fetchMenuData(); 
     } catch (err) {
-      alert(err.response?.data?.message || 'Error updating server dish registers.');
+      // 🎯 FIXED: Catch block verification layer bypasses false mobile container parsing exceptions
+      if (err.response && (err.response.status === 200 || err.response.status === 201)) {
+        triggerAppNotification(
+          "Mess Meal Menu Updated", 
+          `The hostel warden has updated the ${mealType} schedule for ${day} to: "${editText}".`
+        );
+        setEditingDay(null);
+        setEditingMeal(null);
+        fetchMenuData();
+      } else {
+        alert(err.response?.data?.message || 'Error updating server dish registers.');
+      }
     } finally {
       setSaveLoading(false);
     }
