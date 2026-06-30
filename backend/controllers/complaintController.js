@@ -16,6 +16,17 @@ exports.fileComplaint = async (req, res) => {
             description
         });
 
+        // 🎯 NOTIFY ALL ADMINS OF NEW COMPLAINT FILED
+        try {
+            const admins = await User.find({ role: 'admin' });
+            const smsPayload = `New Complaint filed by ${req.user.username} (Room ${roomNumber}): "${title}". Check your dashboard.`;
+            admins.forEach(async (admin) => {
+                await sendSMSNotification(admin, smsPayload);
+            });
+        } catch (smsErr) {
+            console.error("❌ SMS Dispatch to admin failed:", smsErr.message);
+        }
+
         res.status(201).json({ message: 'Complaint filed successfully inside system registries.', newComplaint });
     } catch (error) {
         res.status(500).json({ message: 'Failed to process complaint file', error: error.message });

@@ -253,3 +253,15 @@ exports.handleAdminApproval = async (req, res) => {
         res.status(500).json({ error: error.message }); 
     }
 };
+
+exports.getMyProfile = async (req, res) => {
+    try {
+        const resident = await Resident.findOne({ userId: req.user.id });
+        if (!resident) {
+            return res.status(404).json({ message: "No resident profile found for this user." });
+        }
+        res.json(resident);
+    } catch (error) {
+        res.status(500).json({ message: "Failed to load profile", error: error.message });
+    }
+};

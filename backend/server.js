@@ -66,6 +66,22 @@ mongoose.connect(MONGO_URI)
                 console.log('👤 Fallback testing resident seeded cleanly.');
             }
 
+            // Seed Mess Menu Days
+            const MessMenu = require('./models/MessMenu');
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            for (const day of days) {
+                const dayExists = await MessMenu.findOne({ day });
+                if (!dayExists) {
+                    await MessMenu.create({
+                        day,
+                        breakfast: 'Not Configured',
+                        lunch: 'Not Configured',
+                        dinner: 'Not Configured'
+                    });
+                }
+            }
+            console.log('📅 Mess Menu days successfully synchronized.');
+
             console.log('✅ Account credentials successfully synchronized into cloud database!');
         } catch (seedError) {
             console.error('⚠️ Auto-seeding warning:', seedError.message);

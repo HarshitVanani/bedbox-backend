@@ -23,8 +23,14 @@ const sendSMSNotification = async (user, messageContent) => {
     }
 
     try {
-        if (!accountSid || !authToken || !twilioPhone) {
-            console.error('❌ SMS Config Error: Missing API credentials in environment variables.');
+        const isPlaceholder = !accountSid || !authToken || !twilioPhone || 
+                              accountSid.includes('your_actual_sid') || 
+                              authToken.includes('your_actual_auth_token') || 
+                              twilioPhone.includes('your_purchased_twilio_number');
+
+        if (isPlaceholder) {
+            console.warn('⚠️ SMS Configuration Notice: Twilio placeholder credentials detected in backend/.env.');
+            console.warn('👉 To receive real SMS notifications, please replace the placeholders in backend/.env with your actual Twilio Account SID, Auth Token, and Twilio Phone Number.');
             return { success: false, status: 'missing_credentials' };
         }
 
