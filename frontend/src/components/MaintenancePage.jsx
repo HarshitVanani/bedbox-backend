@@ -67,7 +67,7 @@ export default function MaintenancePage() {
     if (!window.confirm('Mark this task as completed and remove the notice?')) return;
     try {
       const token = localStorage.getItem('bedbox_token');
-      await axios.delete(`https://bedbox-backend.onrender.com/api/maintenance-notices/${id}`, {
+      await axios.delete(`${API_BASE_URL}/api/maintenance-notices/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchNotices(); // Reload list instantly

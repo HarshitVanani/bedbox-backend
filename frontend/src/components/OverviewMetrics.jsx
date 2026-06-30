@@ -3,7 +3,7 @@ import axios from 'axios';
 import { API_BASE_URL } from '../utils/apiConfig';
 import { 
   Users, Bed, ClipboardList, DollarSign, IndianRupee, 
-  RefreshCw, Activity, Clock, UserCheck, UserX
+  RefreshCw, Activity, Clock, UserCheck, UserX, User
 } from 'lucide-react';
 
 export default function OverviewMetrics() {
@@ -19,9 +19,12 @@ export default function OverviewMetrics() {
   // --- APPROVAL PIPELINE STATES ---
   const [pendingRequests, setPendingRequests] = useState([]);
   const [actionLoading, setActionLoading] = useState(false);
+  const [profile, setProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   // --- FIXED: FETCH PENDING REGISTRATIONS WITH API CONFIG HEADERS ---
   const fetchPendingRequests = useCallback(async () => {
+    if (!isAdmin) return;
     try {
       const token = localStorage.getItem('bedbox_token');
       const apiConfig = { headers: { Authorization: `Bearer ${token}` } };
@@ -33,7 +36,22 @@ export default function OverviewMetrics() {
     } catch (error) {
       console.error("Failed fetching approval queues:", error);
     }
-  }, []);
+  }, [isAdmin]);
+
+  const fetchMyProfile = useCallback(async () => {
+    if (isAdmin) return;
+    try {
+      setProfileLoading(true);
+      const token = localStorage.getItem('bedbox_token');
+      const apiConfig = { headers: { Authorization: `Bearer ${token}` } };
+      const response = await axios.get(`${API_BASE_URL}/api/residents/me`, apiConfig);
+      setProfile(response.data);
+    } catch (error) {
+      console.error("Failed fetching student profile:", error);
+    } finally {
+      setProfileLoading(false);
+    }
+  }, [isAdmin]);
 
   // --- FIXED: SYSTEM STATS ENHANCED FOR DYNAMIC SYNC ---
   const pullSystemStats = useCallback(async () => {
@@ -99,7 +117,9 @@ export default function OverviewMetrics() {
           try {
             const alternativeRes = await axios.get(`${API_BASE_URL}/api/invoice`, apiConfig);
             if (Array.isArray(alternativeRes.data)) invoiceData = alternativeRes.data;
-          } catch(err) {}
+          } catch(err) {
+            // Ignore fallback error if alternative endpoint fails
+          }
         }
       }
 
@@ -161,15 +181,21 @@ export default function OverviewMetrics() {
 
   useEffect(() => {
     pullSystemStats();
-    fetchPendingRequests();
+    if (isAdmin) {
+      fetchPendingRequests();
+    } else {
+      fetchMyProfile();
+    }
     
     const refreshTimer = setInterval(() => {
       pullSystemStats();
-      fetchPendingRequests();
+      if (isAdmin) {
+        fetchPendingRequests();
+      }
     }, 10000);
     
     return () => clearInterval(refreshTimer);
-  }, [pullSystemStats, fetchPendingRequests]);
+  }, [pullSystemStats, fetchPendingRequests, fetchMyProfile, isAdmin]);
 
   if (loading) return <div className="text-xs font-medium text-slate-400 animate-pulse p-4">Syncing live database metrics...</div>;
 
@@ -182,10 +208,58 @@ export default function OverviewMetrics() {
           <h4 className="text-sm font-bold text-slate-800">Operational Summary Matrix</h4>
           <p className="text-[11px] text-slate-400">Live indicators compiled from student roster, financial records, and facility reports.</p>
         </div>
-        <button onClick={() => { pullSystemStats(); fetchPendingRequests(); }} disabled={syncing} className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl transition-all text-[11px] font-bold flex items-center gap-1.5 border border-slate-200 cursor-pointer">
+        <button onClick={() => { pullSystemStats(); if (isAdmin) fetchPendingRequests(); else fetchMyProfile(); }} disabled={syncing} className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl transition-all text-[11px] font-bold flex items-center gap-1.5 border border-slate-200 cursor-pointer">
           <RefreshCw className={`w-3 h-3 ${syncing ? 'animate-spin' : ''}`} /> Sync Indicators
         </button>
       </div>
+
+      {/* STUDENT PROFILE DETAILS (ONLY SEE) */}
+      {!isAdmin && profile && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800/40 dark:to-slate-800/80 border border-blue-100/60 dark:border-slate-700 rounded-2xl p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-blue-200/40 dark:border-slate-700">
+            <div className="bg-blue-600 p-2 rounded-xl text-white">
+              <User className="w-4 h-4" />
+            </div>
+            <div>
+              <h5 className="text-xs font-black text-slate-800 dark:text-slate-100">Resident Profile Details</h5>
+              <p className="text-[10px] text-slate-400">Your registered hostel admission details. Please contact admin for changes.</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-[11px]">
+            <div className="bg-white/80 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-100 dark:border-slate-700/60">
+              <span className="block text-[9px] font-bold text-slate-400 uppercase">Name</span>
+              <span className="font-extrabold text-slate-800 dark:text-slate-200 mt-0.5 block">{profile.fullName}</span>
+            </div>
+            <div className="bg-white/80 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-100 dark:border-slate-700/60">
+              <span className="block text-[9px] font-bold text-slate-400 uppercase">Username</span>
+              <span className="font-extrabold text-slate-800 dark:text-slate-200 mt-0.5 block">@{profile.username}</span>
+            </div>
+            <div className="bg-white/80 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-100 dark:border-slate-700/60">
+              <span className="block text-[9px] font-bold text-slate-400 uppercase">Floor</span>
+              <span className="font-extrabold text-slate-800 dark:text-slate-200 mt-0.5 block">
+                {profile.roomNumber ? (profile.roomNumber.startsWith('1') ? '1st Floor' : profile.roomNumber.startsWith('2') ? '2nd Floor' : 'Ground Floor') : '1st Floor'}
+              </span>
+            </div>
+            <div className="bg-white/80 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-100 dark:border-slate-700/60">
+              <span className="block text-[9px] font-bold text-slate-400 uppercase">Room & Bed</span>
+              <span className="font-extrabold text-slate-800 dark:text-slate-200 mt-0.5 block">Room {profile.roomNumber} (Bed {profile.bedNumber})</span>
+            </div>
+            <div className="bg-white/80 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-100 dark:border-slate-700/60 sm:col-span-2">
+              <span className="block text-[9px] font-bold text-slate-400 uppercase">Student Address</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5 block truncate" title={profile.address}>{profile.address}</span>
+            </div>
+            <div className="bg-white/80 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-100 dark:border-slate-700/60">
+              <span className="block text-[9px] font-bold text-slate-400 uppercase">Student Contact</span>
+              <span className="font-extrabold text-slate-800 dark:text-slate-200 mt-0.5 block">{profile.phoneNumber}</span>
+            </div>
+            <div className="bg-white/80 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-100 dark:border-slate-700/60">
+              <span className="block text-[9px] font-bold text-slate-400 uppercase">Emergency Contact</span>
+              <span className="font-extrabold text-slate-800 dark:text-slate-200 mt-0.5 block">{profile.emergencyContact} ({profile.emergencyRelation})</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* METRIC CARD BAR */}
       <div className={`grid grid-cols-1 md:grid-cols-2 ${isAdmin ? 'xl:grid-cols-4' : 'xl:grid-cols-3'} gap-6`}>
@@ -229,54 +303,56 @@ export default function OverviewMetrics() {
       </div>
 
       {/* --- PENDING APPROVALS QUEUE SYSTEM DISPLAY --- */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
-        <div className="flex items-center gap-2 mb-4">
-          <Clock className="w-4 h-4 text-amber-500" />
-          <h5 className="text-xs font-bold text-slate-800">Pending Gate Access Requests ({pendingRequests.length})</h5>
-        </div>
-
-        {pendingRequests.length === 0 ? (
-          <p className="text-xs text-slate-400 italic bg-slate-50 p-4 rounded-xl text-center">No outstanding registration approval requests found.</p>
-        ) : (
-          <div className="space-y-3">
-            {pendingRequests.map((request) => (
-              <div key={request._id} className="p-4 bg-slate-50 border border-slate-100 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="text-left space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-800 text-xs">{request.fullName}</span>
-                    <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-bold">@{request.username}</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">
-                    <strong>Allocation:</strong> Room {request.roomNumber} • Bed {request.bedNumber} | <strong>Phone:</strong> {request.phoneNumber}
-                  </p>
-                  <p className="text-[11px] text-slate-400">
-                    <strong>Address:</strong> {request.address} | <strong>Emergency:</strong> {request.emergencyContact} ({request.emergencyRelation})
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
-                  <button
-                    type="button"
-                    disabled={actionLoading}
-                    onClick={() => handleApprovalAction(request._id, 'Rejected')}
-                    className="bg-red-50 hover:bg-red-100 text-red-600 px-2.5 py-1.5 rounded-lg transition-all cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold"
-                  >
-                    <UserX className="w-3.5 h-3.5" /> Reject
-                  </button>
-                  <button
-                    type="button"
-                    disabled={actionLoading}
-                    onClick={() => handleApprovalAction(request._id, 'Approved')}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg transition-all cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold shadow-sm"
-                  >
-                    <UserCheck className="w-3.5 h-3.5" /> Approve & Register
-                  </button>
-                </div>
-              </div>
-            ))}
+      {isAdmin && (
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <Clock className="w-4 h-4 text-amber-500" />
+            <h5 className="text-xs font-bold text-slate-800">Pending Gate Access Requests ({pendingRequests.length})</h5>
           </div>
-        )}
-      </div>
+
+          {pendingRequests.length === 0 ? (
+            <p className="text-xs text-slate-400 italic bg-slate-50 p-4 rounded-xl text-center">No outstanding registration approval requests found.</p>
+          ) : (
+            <div className="space-y-3">
+              {pendingRequests.map((request) => (
+                <div key={request._id} className="p-4 bg-slate-50 border border-slate-100 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div className="text-left space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-800 text-xs">{request.fullName}</span>
+                      <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-bold">@{request.username}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      <strong>Allocation:</strong> Room {request.roomNumber} • Bed {request.bedNumber} | <strong>Phone:</strong> {request.phoneNumber}
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      <strong>Address:</strong> {request.address} | <strong>Emergency:</strong> {request.emergencyContact} ({request.emergencyRelation})
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={() => handleApprovalAction(request._id, 'Rejected')}
+                      className="bg-red-50 hover:bg-red-100 text-red-600 px-2.5 py-1.5 rounded-lg transition-all cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold"
+                    >
+                      <UserX className="w-3.5 h-3.5" /> Reject
+                    </button>
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={() => handleApprovalAction(request._id, 'Approved')}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg transition-all cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold shadow-sm"
+                    >
+                      <UserCheck className="w-3.5 h-3.5" /> Approve & Register
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* LOWER DOUBLE COLUMN REGISTER GRIDS */}
       {!isAdmin ? (

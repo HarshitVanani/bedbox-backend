@@ -1,7 +1,7 @@
 // frontend/src/components/ResidentDirectory.jsx
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Users, UserPlus, LogOut, Phone, ShieldCheck, History, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
+import { Users, UserPlus, LogOut, Phone, ShieldCheck, History, RefreshCw, AlertCircle, CheckCircle, ShieldAlert, X } from 'lucide-react';
 import { API_BASE_URL } from '../utils/apiConfig';
 
 export default function ResidentDirectory() {
@@ -9,6 +9,21 @@ export default function ResidentDirectory() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+
+  // 👤 Mock/Simulated Context: Replace this with your global Auth Context values (e.g., from an Auth Hook)
+  const [currentUser, setCurrentUser] = useState({
+    username: 'krish100',
+    role: 'Student', // Toggle between 'Admin' or 'Student' to test profile overlay visibility
+    fullName: 'Krish Patel',
+    roomNo: '101',
+    bedAssignment: '1',
+    mobile: '9377972056',
+    emergencyContact: '9377972049',
+    emergencyRelation: 'Father',
+    address: '402, Shrinathji Heights, Near Indus University Road, Ahmedabad, Gujarat, 382481'
+  });
+
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   // Form 1: Admission Onboarding State
   const [fullName, setFullName] = useState('');
@@ -18,6 +33,9 @@ export default function ResidentDirectory() {
   const [bedNumber, setBedNumber] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [emergencyContact, setEmergencyContact] = useState('');
+  // 🆕 New State Registries
+  const [emergencyRelation, setEmergencyRelation] = useState('');
+  const [address, setAddress] = useState('');
 
   // Form 2: Check-Out Gate State
   const [outUsername, setOutUsername] = useState('');
@@ -47,12 +65,11 @@ export default function ResidentDirectory() {
   // Handle Admission Register Submit Action
   const handleRegisterResident = async (e) => {
     e.preventDefault();
-    if (!fullName || !username || !password || !roomNumber || !bedNumber || !phoneNumber || !emergencyContact) {
-      alert('Please fully specify all student registration details.');
+    if (!fullName || !username || !password || !roomNumber || !bedNumber || !phoneNumber || !emergencyContact || !emergencyRelation || !address) {
+      alert('Please fully specify all student registration details including relation and address.');
       return;
     }
 
-    // 🎯 FIX: Force lowercase and strip symbols on the frontend before dispatching to production backend
     const sanitizedUsername = username.trim().toLowerCase().replace('@', '');
 
     try {
@@ -61,16 +78,19 @@ export default function ResidentDirectory() {
       
       await axios.post(`${API_BASE_URL}/api/residents/register`, {
         fullName: fullName.trim(),
-        username: sanitizedUsername, // Send clean string configuration
+        username: sanitizedUsername,
         password,
         roomNumber: roomNumber.trim(),
         bedNumber: parseInt(bedNumber),
         phoneNumber: phoneNumber.trim(),
-        emergencyContact: emergencyContact.trim()
+        emergencyContact: emergencyContact.trim(),
+        emergencyRelation: emergencyRelation.trim(), // 🆕 Sent safely to backend
+        address: address.trim()                      // 🆕 Sent safely to backend
       }, { headers: { Authorization: `Bearer ${token}` } });
 
       alert(`Resident onboarded successfully! Account created for @${sanitizedUsername}`);
       setFullName(''); setUsername(''); setPassword(''); setRoomNumber(''); setBedNumber(''); setPhoneNumber(''); setEmergencyContact('');
+      setEmergencyRelation(''); setAddress('');
       fetchDirectoryLogs();
     } catch (err) {
       alert(err.response?.data?.message || err.message || 'Check-in entry error.');
@@ -105,15 +125,35 @@ export default function ResidentDirectory() {
     }
   };
 
-  // Compute active roster arrays vs archived history items
   const activeResidents = residents.filter(r => r.status === 'Active');
   const archivedHistoryList = residents.filter(r => r.status === 'Checked Out');
 
   if (loading) return <div className="text-sm font-medium text-slate-500 animate-pulse p-4">Synchronizing database directory registers...</div>;
 
   return (
-    <div className="space-y-8 animate-fadeIn">
+    <div className="space-y-8 animate-fadeIn relative">
       
+      {/* HEADER CONTROLS INTERACTIVE LAYER */}
+      <div className="flex justify-end items-center bg-slate-900 text-white px-6 py-3.5 rounded-2xl shadow-sm gap-4">
+        <div 
+          onClick={() => currentUser.role === 'Student' && setShowProfileModal(true)}
+          className={`flex items-center gap-3 px-3 py-1.5 rounded-xl transition-all ${
+            currentUser.role === 'Student' ? 'cursor-pointer hover:bg-slate-800/80 border border-slate-700/50' : 'cursor-default'
+          }`}
+        >
+          <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs shadow-inner uppercase">
+            {currentUser.username.charAt(0)}
+          </div>
+          <div className="text-left">
+            <h5 className="text-xs font-bold tracking-wide text-slate-100 leading-tight">{currentUser.username}</h5>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">{currentUser.role} Mode</p>
+          </div>
+        </div>
+        <button className="p-2 text-slate-400 hover:text-rose-400 transition-colors">
+          <LogOut className="w-4 h-4" />
+        </button>
+      </div>
+
       {/* 3-COLUMN MASTER WORKSPACE TOP LAYER */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
         
@@ -156,6 +196,16 @@ export default function ResidentDirectory() {
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Emergency Parent Contact</label>
                 <input type="tel" value={emergencyContact} onChange={(e) => setEmergencyContact(e.target.value)} placeholder="Guardian emergency number" className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition-all" />
               </div>
+              {/* 🆕 NEW FIELD: EMERGENCY RELATIONSHIP REFERENCE */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Emergency Contact Relation</label>
+                <input type="text" value={emergencyRelation} onChange={(e) => setEmergencyRelation(e.target.value)} placeholder="e.g., Father, Mother, Guardian" className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition-all" />
+              </div>
+              {/* 🆕 NEW FIELD: PERMANENT ADDRESS CONTAINER */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Permanent Residential Address</label>
+                <textarea rows="2" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Enter full permanent home address" className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition-all resize-none" />
+              </div>
               <button type="submit" disabled={actionLoading} className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm mt-2">
                 Check In Student
               </button>
@@ -176,7 +226,7 @@ export default function ResidentDirectory() {
                 <p className="text-xs text-slate-400 font-semibold">No active boarders linked to open rooms.</p>
               </div>
             ) : (
-              <div className="flex-1 overflow-y-auto max-h-[380px] space-y-2.5 pr-1">
+              <div className="flex-1 overflow-y-auto max-h-[460px] space-y-2.5 pr-1">
                 {activeResidents.map((r) => (
                   <div key={r._id} className="p-3 bg-slate-50/60 border border-slate-200/60 rounded-xl space-y-1.5 hover:border-slate-300 transition-all">
                     <div className="flex justify-between items-start">
@@ -287,6 +337,65 @@ export default function ResidentDirectory() {
           </div>
         )}
       </div>
+
+      {/* 🆕 MODAL OVERLAY: REGISTERED STUDENT PROFILE CARD */}
+      {showProfileModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-lg shadow-2xl overflow-hidden p-6 space-y-5 animate-scaleUp">
+            
+            {/* Modal Top Header Bar */}
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="font-extrabold text-sm text-slate-900 tracking-wider uppercase flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-blue-600" /> BedBox Personal Boarder Card
+              </h3>
+              <button 
+                onClick={() => setShowProfileModal(false)}
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Main Information Grid Matrix */}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+              <div className="bg-slate-50/60 p-3 rounded-xl border border-slate-100">
+                <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Full Legal Name</span>
+                <span className="text-xs font-bold text-slate-800 capitalize">{currentUser.fullName}</span>
+              </div>
+              <div className="bg-slate-50/60 p-3 rounded-xl border border-slate-100">
+                <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">System Username</span>
+                <span className="text-xs font-mono text-slate-700">@{currentUser.username}</span>
+              </div>
+              <div className="bg-blue-50/30 p-3 rounded-xl border border-blue-100/40">
+                <span className="block text-[9px] font-bold text-blue-500 uppercase tracking-wide mb-0.5">Assigned Room Number</span>
+                <span className="text-xs font-extrabold text-blue-700">Room {currentUser.roomNo}</span>
+              </div>
+              <div className="bg-blue-50/30 p-3 rounded-xl border border-blue-100/40">
+                <span className="block text-[9px] font-bold text-blue-500 uppercase tracking-wide mb-0.5">Bed Allocation Index</span>
+                <span className="text-xs font-extrabold text-blue-700">Bed Single-{currentUser.bedAssignment}</span>
+              </div>
+              <div className="bg-slate-50/60 p-3 rounded-xl border border-slate-100">
+                <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Mobile Contact Phone</span>
+                <span className="text-xs font-medium text-slate-800">{currentUser.mobile}</span>
+              </div>
+              <div className="bg-slate-50/60 p-3 rounded-xl border border-slate-100">
+                <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Emergency Parent Reference</span>
+                <span className="text-xs font-medium text-slate-800">{currentUser.emergencyContact} ({currentUser.emergencyRelation})</span>
+              </div>
+            </div>
+
+            {/* Block Layout: Complete Permanent Address */}
+            <div className="bg-slate-900 text-slate-100 p-4 rounded-xl space-y-1 shadow-sm">
+              <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide">Registered Permanent Address</span>
+              <p className="text-xs font-medium leading-relaxed text-slate-200">
+                {currentUser.address}
+              </p>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

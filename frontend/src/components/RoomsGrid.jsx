@@ -87,8 +87,8 @@ export default function RoomsGrid() {
         freshBedsArray.push({ bedNumber: i, status: 'Available' });
       }
 
-      // 🎯 UPDATED: Changed from localhost to live cloud Render URL
-      await axios.put(`https://bedbox-backend.onrender.com/api/rooms/${roomId}`, 
+      // 🎯 UPDATED: Use dynamic API_BASE_URL instead of hardcoded Render URL
+      await axios.put(`${API_BASE_URL}/api/rooms/${roomId}`, 
         { beds: freshBedsArray },
         { headers: { Authorization: `Bearer ${token}` } }
       );
