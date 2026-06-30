@@ -1,45 +1,68 @@
-const express = require('express');
-const router = express.Router();
-const Student = require('../models/Student'); // Make sure your model import path is correct
+// backend/models/Resident.js
+const mongoose = require('mongoose');
 
-// Paste the updated route block right here:
-router.post('/register', async (req, res) => {
-  try {
-    const { 
-      fullName, 
-      username, 
-      password, 
-      roomNumber, 
-      bedNumber, 
-      phoneNumber, 
-      emergencyContact,
-      emergencyRelation, 
-      address 
-    } = req.body;
-
-    const existingStudent = await Student.findOne({ username });
-    if (existingStudent) {
-      return res.status(400).json({ message: 'Username already registered.' });
+const ResidentSchema = new mongoose.Schema({
+    userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
+    fullName: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    username: {
+        type: String,
+        required: true,
+        unique: true,
+        trim: true
+    },
+    roomNumber: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    bedNumber: {
+        type: Number,
+        required: true
+    },
+    phoneNumber: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    address: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    emergencyContact: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    emergencyRelation: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    status: {
+        type: String,
+        enum: ['Active', 'Checked Out'],
+        default: 'Active'
+    },
+    checkInDate: {
+        type: Date,
+        default: Date.now
+    },
+    checkOutDate: {
+        type: Date
+    },
+    duesCleared: {
+        type: Boolean,
+        default: false
     }
+}, { timestamps: true });
 
-    const newStudent = new Student({
-      fullName,
-      username,
-      password, 
-      roomNumber,
-      bedNumber,
-      phoneNumber,
-      emergencyContact,
-      emergencyRelation, 
-      address 
-    });
-
-    await newStudent.save();
-    res.status(201).json({ message: 'Resident onboarded successfully!' });
-
-  } catch (error) {
-    res.status(500).json({ message: error.message || 'Internal Server Error' });
-  }
-});
-
-module.exports = router;
+module.exports = mongoose.model('Resident', ResidentSchema);
