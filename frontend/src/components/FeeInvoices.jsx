@@ -5,7 +5,7 @@ import { API_BASE_URL } from '../utils/apiConfig';
 import { CreditCard, DollarSign, Receipt, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { triggerAppNotification } from '../utils/notificationSystem';
 import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable'; // 🎯 FIXED: Explicit ES Module Import
+import autoTable from 'jspdf-autotable';
 
 const generateInvoicePDF = (studentData) => {
   const doc = new jsPDF({
@@ -37,12 +37,10 @@ const generateInvoicePDF = (studentData) => {
   doc.setFontSize(9);
   const invoiceNum = `INV-${Date.now().toString().slice(-6)}`;
   const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  
+
   doc.text(`Invoice Reference: ${invoiceNum}`, 15, 57);
   doc.text(`Date of Issue: ${dateStr}`, 15, 63);
   doc.text(`Payment Status: Verified / Settled`, 15, 69);
-
-  // --- STUDENT / CLIENT PARTICULARS GRID ---
   doc.setDrawColor(226, 232, 240);
   doc.line(15, 75, 195, 75);
 
@@ -59,7 +57,6 @@ const generateInvoicePDF = (studentData) => {
     [studentData.category || "Room Rent Charges", `Rs. ${Number(studentData.amount || 12400).toLocaleString('en-IN')}`]
   ];
 
-  // 🎯 FIXED: Direct standard function call format handles bundling pipelines perfectly
   autoTable(doc, {
     startY: 110,
     head: [tableColumns],
@@ -89,8 +86,30 @@ const generateInvoicePDF = (studentData) => {
   doc.text('This document serves as an official electronic confirmation of system registration database entries.', 15, finalY + 37);
   doc.text('BedBox Operational Core Node Hub • Render Cloud Service Platform', 15, finalY + 42);
 
-  // Save File Event Trigger
-  doc.save(`BedBox_${invoiceNum}_Room_${studentData.roomNumber || '101'}.pdf`);
+  // --- Save File Event Trigger (Supports Mobile Webviews and Browsers via explicit Blob strings) ---
+  const fileName = `BedBox_${invoiceNum}_Room_${studentData.roomNumber || '101'}.pdf`;
+
+  if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+    // 📱 MOBILE NATIVE DEVICE COMPATIBILITY BLOB STREAM
+    const pdfOutput = doc.output('blob');
+    const blobUrl = URL.createObjectURL(pdfOutput);
+    
+    const downloadLink = document.createElement('a');
+    downloadLink.href = blobUrl;
+    downloadLink.download = fileName;
+    downloadLink.target = '_blank';
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    
+    // De-allocate memory spaces safely
+    setTimeout(() => {
+      document.body.removeChild(downloadLink);
+      URL.revokeObjectURL(blobUrl);
+    }, 100);
+  } else {
+    // 💻 DESKTOP WEB BROWSER FALLBACK
+    doc.save(fileName);
+  }
 };
 
 export default function FeeInvoices() {
