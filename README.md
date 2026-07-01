@@ -21,3 +21,20 @@ BedBox is a high-performance, full-stack hostel property management platform bui
 - Full cryptographic password hashing utilizing salt rounds.
 - Polymorphic account visibility layers strictly enforced (Warden Admin vs Resident Student).
 - Isolation matrices map active session routing paths securely.
+
+## 🚀 Local Installation & Execution Strategy
+
+### 🟢 Backend Setup
+1. Navigate to the server root environment: `cd backend`
+2. Install dependencies: `npm install`
+3. Configure your local runtime parameters in a `.env` environment layout file.
+4. Launch the staging gateway: `npm start`
+
+### 🔵 Frontend & Native Android Emulation
+1. Navigate to the client environment interface: `cd frontend`
+2. Install layout package scripts: `npm install`
+3. Execute the local Vite HMR server pipeline: `npm run dev`
+4. Sync compiled assets directly to native studio layers:
+   ```bash
+   npm run build
+   npx cap sync android
