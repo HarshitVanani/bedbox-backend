@@ -14,16 +14,19 @@ export const triggerAppNotification = (title, body) => {
     return; // Exits instantly without displaying anything to the user
   }
 
-  // 2. Fallback execution: Create a beautiful in-app alert notification banner
-  // (Can be linked directly to your Socket.io architecture later)
-  if (Notification.permission === "granted") {
-    new Notification(title, { body, icon: "/shield.png" });
-  } else if (Notification.permission !== "denied") {
-    Notification.requestPermission().then(permission => {
-      if (permission === "granted") {
-        new Notification(title, { body });
-      }
-    });
+  // 🎯 FIXED: Wrap native browser Notification API in a safety check for mobile WebView containers
+  if (typeof Notification !== 'undefined') {
+    if (Notification.permission === "granted") {
+      new Notification(title, { body, icon: "/shield.png" });
+    } else if (Notification.permission !== "denied") {
+      Notification.requestPermission().then(permission => {
+        if (permission === "granted") {
+          new Notification(title, { body });
+        }
+      });
+    }
+  } else {
+    console.log(`📱 Running inside mobile sandbox container. Alert caught: [${title}] - ${body}`);
   }
 
   // 3. Fallback broadcast: Dispatch a custom browser DOM event so active open panels can react

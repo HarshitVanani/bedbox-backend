@@ -3,8 +3,95 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../utils/apiConfig';
 import { CreditCard, DollarSign, Receipt, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
-// 🎯 CRITICAL SYSTEM LINK: Import our preference-aware live alert engine
 import { triggerAppNotification } from '../utils/notificationSystem';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable'; // 🎯 FIXED: Explicit ES Module Import
+
+const generateInvoicePDF = (studentData) => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // --- BRANDING HEADER LAYER ---
+  doc.setFillColor(30, 41, 59); // Slate 800 theme color accent
+  doc.rect(0, 0, 210, 35, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.text('BEDBOX HOSTEL PLATFORM', 15, 22);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text('Official Accounts Receivable & Utilities Ledger', 15, 28);
+
+  // --- METADATA & INVOICE TRACKING MATRIX ---
+  doc.setTextColor(51, 65, 85);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text('INVOICE / RECEIPT STATEMENT', 15, 50);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  const invoiceNum = `INV-${Date.now().toString().slice(-6)}`;
+  const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  
+  doc.text(`Invoice Reference: ${invoiceNum}`, 15, 57);
+  doc.text(`Date of Issue: ${dateStr}`, 15, 63);
+  doc.text(`Payment Status: Verified / Settled`, 15, 69);
+
+  // --- STUDENT / CLIENT PARTICULARS GRID ---
+  doc.setDrawColor(226, 232, 240);
+  doc.line(15, 75, 195, 75);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('BILLED TO:', 15, 83);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Resident Name: ${studentData.studentName || 'Harshit Vanani'}`, 15, 89);
+  doc.text(`User Directory ID: ${studentData.username || 'harshit101'}`, 15, 95);
+  doc.text(`Assigned Housing: Room ${studentData.roomNumber || '101'}`, 15, 101);
+
+  // --- ITEMIZATION TRANSITION TABLE MATRIX ---
+  const tableColumns = ["Billing Stream Category Description", "Amount Balance (INR)"];
+  const tableRows = [
+    [studentData.category || "Room Rent Charges", `Rs. ${Number(studentData.amount || 12400).toLocaleString('en-IN')}`]
+  ];
+
+  // 🎯 FIXED: Direct standard function call format handles bundling pipelines perfectly
+  autoTable(doc, {
+    startY: 110,
+    head: [tableColumns],
+    body: tableRows,
+    theme: 'striped',
+    headStyles: { fillColor: [37, 99, 235], fontSize: 10, fontStyle: 'bold' }, // Blue 600 UI accent
+    bodyStyles: { fontSize: 9, textColor: [51, 65, 85] },
+    margin: { left: 15, right: 15 }
+  });
+
+  // --- FINANCIAL SUMMARY MATRIX BLOCK ---
+  const finalY = doc.lastAutoTable.finalY + 15;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text(`Total Settled Account Valuation:`, 110, finalY);
+  doc.setFontSize(14);
+  doc.setTextColor(220, 38, 38); // Red 600 indicator accent
+  doc.text(`Rs. ${Number(studentData.amount || 12400).toLocaleString('en-IN')}/-`, 110, finalY + 7);
+
+  // --- AUTHORIZED SIGNATURE FOOTER TRACK ---
+  doc.setDrawColor(241, 245, 249);
+  doc.line(15, finalY + 30, 195, finalY + 30);
+  
+  doc.setTextColor(148, 163, 184);
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(8);
+  doc.text('This document serves as an official electronic confirmation of system registration database entries.', 15, finalY + 37);
+  doc.text('BedBox Operational Core Node Hub • Render Cloud Service Platform', 15, finalY + 42);
+
+  // Save File Event Trigger
+  doc.save(`BedBox_${invoiceNum}_Room_${studentData.roomNumber || '101'}.pdf`);
+};
 
 export default function FeeInvoices() {
   const [invoices, setInvoices] = useState([]);
@@ -27,7 +114,6 @@ export default function FeeInvoices() {
     try {
       setLoading(true);
       const token = localStorage.getItem('bedbox_token');
-      // 🎯 UPDATED: Target production cloud route instead of localhost
       const response = await axios.get(`${API_BASE_URL}/api/invoices`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -44,7 +130,31 @@ export default function FeeInvoices() {
     fetchInvoicesData();
   }, []);
 
-  // 1. Post a brand new billing invoice to a student (Admin Action)
+  const processInvoiceCreationSuccess = (targetUser, targetAmount, targetType) => {
+    triggerAppNotification(
+      "New Fee Invoice Dispatched", 
+      `An outstanding ${targetType} balance statement of ₹${targetAmount} has been issued to student account: [${targetUser}].`
+    );
+
+    const targetMatch = invoices.find(inv => inv.username === targetUser);
+
+    generateInvoicePDF({
+      studentName: targetMatch?.studentName || targetUser,
+      username: targetUser,
+      roomNumber: targetMatch?.roomNumber || "Pending",
+      category: targetType,
+      amount: targetAmount
+    });
+
+    setSuccessMsg('Invoice dispatched and recorded inside ledgers!');
+    setUsername('');
+    setAmount('');
+    setDueDate('');
+    fetchInvoicesData();
+
+    setTimeout(() => setSuccessMsg(''), 4000);
+  };
+
   const handleGenerateBill = async (e) => {
     e.preventDefault();
     if (!username || !amount || !billType || !dueDate) {
@@ -55,28 +165,18 @@ export default function FeeInvoices() {
     try {
       setSubmitLoading(true);
       const token = localStorage.getItem('bedbox_token');
-      // 🎯 UPDATED: Target production cloud route instead of localhost
+      
       await axios.post(`${API_BASE_URL}/api/invoices/generate`, 
         { username, amount, billType, dueDate },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // 🎯 PASTE TARGET REACHED: Fire alert tracking upon billing confirmation
-      triggerAppNotification(
-        "New Fee Invoice Dispatched", 
-        `An outstanding ${billType} balance statement of ₹${amount} has been issued to student account: [${username}].`
-      );
-
-      setSuccessMsg('Invoice dispatched and recorded inside ledgers!');
-      setUsername('');
-      setAmount('');
-      setDueDate('');
-      fetchInvoicesData(); // Reload accounting grid live
-
-      setTimeout(() => setSuccessMsg(''), 4000);
+      processInvoiceCreationSuccess(username, amount, billType);
     } catch (err) {
-      // 🎯 FIX INSTALLED: Only alert if the server explicitly errors out
-      if (err.response) {
+      const serverStatus = err.response?.status || err.request?.status;
+      if (serverStatus === 200 || serverStatus === 201) {
+        processInvoiceCreationSuccess(username, amount, billType);
+      } else {
         alert(err.response?.data?.message || 'Error processing billing file compilation.');
       }
     } finally {
@@ -84,31 +184,43 @@ export default function FeeInvoices() {
     }
   };
 
-  // 2. Mark an Unpaid bill as Paid securely (Admin Action)
+  const processInvoiceSettlementSuccess = (targetBill) => {
+    if (targetBill) {
+      triggerAppNotification(
+        "Payment Confirmation Settlement", 
+        `Transaction cleared! The outstanding ₹${targetBill.amount} ${targetBill.billType} invoice statement for [${targetBill.studentName || 'Resident'}] has been recorded as paid.`
+      );
+
+      generateInvoicePDF({
+        studentName: targetBill.studentName,
+        username: targetBill.username,
+        roomNumber: targetBill.roomNumber,
+        category: targetBill.billType,
+        amount: targetBill.amount
+      });
+    }
+    fetchInvoicesData();
+  };
+
   const handleSettleInvoice = async (invoiceId) => {
+    const targetBill = invoices.find(inv => inv._id === invoiceId);
+
     try {
       const token = localStorage.getItem('bedbox_token');
       
-      // Find the localized targeted row element reference context inside our state array first
-      const targetBill = invoices.find(inv => inv._id === invoiceId);
-      
-      // 🎯 UPDATED: Target production cloud route instead of localhost
       await axios.put(`${API_BASE_URL}/api/invoices/settle`, 
         { invoiceId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // 🎯 PASTE TARGET REACHED: Dispatch transaction resolution statement
-      if (targetBill) {
-        triggerAppNotification(
-          "Payment Confirmation Settlement", 
-          `Transaction cleared! The outstanding ₹${targetBill.amount} ${targetBill.billType} invoice statement for [${targetBill.studentName || 'Resident'}] has been recorded as paid.`
-        );
-      }
-
-      fetchInvoicesData(); // Instant hot reload visual tracking registers
+      processInvoiceSettlementSuccess(targetBill);
     } catch (err) {
-      alert('Error updating ledger row transaction status.');
+      const serverStatus = err.response?.status || err.request?.status;
+      if (serverStatus === 200 || serverStatus === 201) {
+        processInvoiceSettlementSuccess(targetBill);
+      } else {
+        alert('Error updating ledger row transaction status.');
+      }
     }
   };
 
@@ -116,7 +228,6 @@ export default function FeeInvoices() {
 
   return (
     <div className="space-y-6">
-      {/* View Title */}
       <div className="flex justify-between items-center">
         <div>
           <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Fee Ledger & Invoice Sheets</h3>
@@ -132,8 +243,6 @@ export default function FeeInvoices() {
       {error && <div className="text-sm text-red-500 p-3 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900 rounded-xl">{error}</div>}
 
       <div className="flex flex-col lg:flex-row gap-6 items-start">
-        
-        {/* LEFT COMPONENT: Admin Billing Generation Deck (Hidden automatically from Students) */}
         {isAdmin && (
           <div className="w-full lg:w-[350px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm space-y-4 shrink-0 transition-colors duration-200">
             <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-2 flex items-center gap-2">
@@ -182,7 +291,6 @@ export default function FeeInvoices() {
           </div>
         )}
 
-        {/* RIGHT COMPONENT: Master Financial Roster Table Display */}
         <div className="flex-1 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm overflow-hidden transition-colors duration-200">
           <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-4">
             {isAdmin ? "Hostel Accounts Receivable Ledger" : "Your Personal Outstanding Dues Records"}
@@ -218,7 +326,7 @@ export default function FeeInvoices() {
                           <span className="text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 px-2.5 py-1 rounded-md">{bill.billType}</span>
                         </td>
                         <td className="py-3.5 px-4 font-extrabold text-slate-900 dark:text-slate-100 text-sm">
-                          ₹{bill.amount}
+                          ₹{Number(bill.amount).toLocaleString('en-IN')}
                         </td>
                         <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 font-semibold">
                           {new Date(bill.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
@@ -232,7 +340,6 @@ export default function FeeInvoices() {
                           </span>
                         </td>
 
-                        {/* Inline Admin Action Triggers Row */}
                         {isAdmin && (
                           <td className="py-3.5 px-4 text-right">
                             {!isPaid ? (
@@ -255,7 +362,6 @@ export default function FeeInvoices() {
             </div>
           )}
         </div>
-
       </div>
     </div>
   );
